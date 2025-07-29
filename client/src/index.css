@@ -1,0 +1,174 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(220, 43%, 8%);
+  --foreground: hsl(0, 0%, 100%);
+  --muted: hsl(215, 32%, 17%);
+  --muted-foreground: hsl(218, 11%, 65%);
+  --popover: hsl(220, 43%, 8%);
+  --popover-foreground: hsl(0, 0%, 100%);
+  --card: hsl(215, 32%, 17%);
+  --card-foreground: hsl(0, 0%, 100%);
+  --border: hsl(215, 28%, 24%);
+  --input: hsl(215, 28%, 24%);
+  --primary: hsl(193, 100%, 50%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(215, 32%, 17%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(215, 32%, 17%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(60, 9%, 98%);
+  --ring: hsl(193, 100%, 50%);
+  --radius: 0.5rem;
+  
+  /* Gaming theme colors */
+  --gaming-dark: hsl(220, 43%, 8%);
+  --gaming-darker: hsl(220, 50%, 3%);
+  --gaming-gray: hsl(215, 32%, 17%);
+  --gaming-light: hsl(215, 28%, 24%);
+  --electric-blue: hsl(193, 100%, 50%);
+  --neon-green: hsl(145, 100%, 50%);
+  --electric-purple: hsl(248, 73%, 65%);
+  --danger-red: hsl(348, 86%, 61%);
+}
+
+.dark {
+  --background: hsl(220, 43%, 8%);
+  --foreground: hsl(0, 0%, 100%);
+  --muted: hsl(215, 32%, 17%);
+  --muted-foreground: hsl(218, 11%, 65%);
+  --popover: hsl(220, 43%, 8%);
+  --popover-foreground: hsl(0, 0%, 100%);
+  --card: hsl(215, 32%, 17%);
+  --card-foreground: hsl(0, 0%, 100%);
+  --border: hsl(215, 28%, 24%);
+  --input: hsl(215, 28%, 24%);
+  --primary: hsl(193, 100%, 50%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(215, 32%, 17%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(215, 32%, 17%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 84%, 60%);
+  --destructive-foreground: hsl(60, 9%, 98%);
+  --ring: hsl(193, 100%, 50%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+/* Gaming UI Components */
+.glow-effect {
+  transition: all 0.3s ease;
+}
+
+.glow-effect:hover {
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.6);
+  transform: translateY(-2px);
+}
+
+.conquest-card {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.8), rgba(15, 23, 42, 0.9));
+  border: 1px solid rgba(0, 212, 255, 0.3);
+}
+
+.team-badge {
+  background: linear-gradient(45deg, #8B5CF6, #00D4FF);
+}
+
+.progress-glow {
+  box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+}
+
+.font-orbitron {
+  font-family: 'Orbitron', monospace;
+}
+
+/* Gaming colors as utilities */
+.text-electric-blue {
+  color: var(--electric-blue);
+}
+
+.text-neon-green {
+  color: var(--neon-green);
+}
+
+.text-electric-purple {
+  color: var(--electric-purple);
+}
+
+.text-danger-red {
+  color: var(--danger-red);
+}
+
+.bg-gaming-dark {
+  background-color: var(--gaming-dark);
+}
+
+.bg-gaming-darker {
+  background-color: var(--gaming-darker);
+}
+
+.bg-gaming-gray {
+  background-color: var(--gaming-gray);
+}
+
+.bg-gaming-light {
+  background-color: var(--gaming-light);
+}
+
+.bg-electric-blue {
+  background-color: var(--electric-blue);
+}
+
+.bg-neon-green {
+  background-color: var(--neon-green);
+}
+
+.bg-electric-purple {
+  background-color: var(--electric-purple);
+}
+
+.bg-danger-red {
+  background-color: var(--danger-red);
+}
+
+.border-gaming-light {
+  border-color: var(--gaming-light);
+}
+
+.border-electric-blue {
+  border-color: var(--electric-blue);
+}
+
+.border-neon-green {
+  border-color: var(--neon-green);
+}
+
+.border-danger-red {
+  border-color: var(--danger-red);
+}
+
+.shadow-neon {
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+}
+
+.shadow-neon-green {
+  box-shadow: 0 0 20px rgba(0, 255, 136, 0.5);
+}
+
+.shadow-neon-purple {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+}
