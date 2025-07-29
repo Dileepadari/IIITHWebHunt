@@ -119,11 +119,12 @@ The system uses PostgreSQL with the following main entities:
 
 ## Recent Changes: Latest modifications with dates
 
-### January 2025 - Complete Gaming Platform
-- Enhanced team creation with captain selection from SQL database dropdown
-- Added comprehensive local deployment documentation (README.md, DEPLOYMENT.md)
-- Implemented complete admin panel with game session management
-- Added bulk website management for IIIT domains
-- Integrated WebSocket real-time updates for live leaderboard
-- Completed authentication system with Replit Auth integration
-- Built responsive gaming UI with dark theme and neon accents
+### January 2025 - Complete Gaming Platform with Docker Support
+- **Custom Authentication System**: Replaced Replit Auth with custom username/password + Google OAuth
+- **Enhanced Team Management**: Captain selection from SQL database dropdown for admin team creation
+- **Complete Docker Setup**: Full containerization with PostgreSQL, Redis, Nginx, monitoring
+- **Local Deployment**: Comprehensive documentation (README.md, DEPLOYMENT.md, DOCKER.md)
+- **Production Ready**: Multi-stage Docker builds, health checks, backup scripts
+- **Monitoring Stack**: Optional Prometheus + Grafana integration
+- **Security Features**: Rate limiting, SSL support, secure session management
+- **Development Environment**: Hot reload Docker setup with pgAdmin integration
