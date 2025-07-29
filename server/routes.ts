@@ -107,6 +107,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post('/api/websites/bulk', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const { urls } = req.body;
+      if (!Array.isArray(urls)) {
+        return res.status(400).json({ message: "URLs must be an array" });
+      }
+
+      const websites = await storage.createWebsitesBulk(urls);
+      res.json({ count: websites.length, websites });
+    } catch (error) {
+      console.error("Error creating websites in bulk:", error);
+      res.status(500).json({ message: "Failed to create websites" });
+    }
+  });
+
   // Conquest routes
   app.post('/api/conquests', isAuthenticated, async (req: any, res) => {
     try {
@@ -130,7 +152,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (website && !website.isConquered) {
         // Successful conquest
-        points = website.points;
+        points = website.points || 100;
         isSuccessful = true;
         websiteId = website.id;
         
@@ -171,10 +193,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get('/api/conquests/team/:teamId', isAuthenticated, async (req, res) => {
+  app.get('/api/conquests/team/:userId', isAuthenticated, async (req, res) => {
     try {
-      const { teamId } = req.params;
-      const conquests = await storage.getConquestsByTeam(teamId);
+      const { userId } = req.params;
+      const team = await storage.getTeamByUserId(userId);
+      if (!team) {
+        return res.json([]);
+      }
+      const conquests = await storage.getConquestsByTeam(team.id);
       res.json(conquests);
     } catch (error) {
       console.error("Error fetching team conquests:", error);
@@ -231,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch('/api/game/:id', isAuthenticated, async (req: any, res) => {
+  app.post('/api/game/pause', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
@@ -240,18 +266,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Admin access required" });
       }
 
-      const { id } = req.params;
-      await storage.updateGameSession(id, req.body);
-
+      const session = await storage.pauseCurrentGame();
       broadcastToAll({
-        type: 'GAME_UPDATED',
-        data: { id, ...req.body }
+        type: 'GAME_PAUSED',
+        data: session
       });
 
-      res.json({ message: "Game session updated" });
+      res.json(session);
     } catch (error) {
-      console.error("Error updating game session:", error);
-      res.status(500).json({ message: "Failed to update game session" });
+      console.error("Error pausing game:", error);
+      res.status(500).json({ message: "Failed to pause game" });
+    }
+  });
+
+  app.post('/api/game/resume', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const session = await storage.resumeCurrentGame();
+      broadcastToAll({
+        type: 'GAME_RESUMED',
+        data: session
+      });
+
+      res.json(session);
+    } catch (error) {
+      console.error("Error resuming game:", error);
+      res.status(500).json({ message: "Failed to resume game" });
+    }
+  });
+
+  app.post('/api/game/end', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      
+      if (!user?.isAdmin) {
+        return res.status(403).json({ message: "Admin access required" });
+      }
+
+      const session = await storage.endCurrentGame();
+      broadcastToAll({
+        type: 'GAME_ENDED',
+        data: session
+      });
+
+      res.json(session);
+    } catch (error) {
+      console.error("Error ending game:", error);
+      res.status(500).json({ message: "Failed to end game" });
     }
   });
 

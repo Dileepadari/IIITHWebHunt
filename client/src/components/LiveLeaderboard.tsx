@@ -1,139 +1,115 @@
 import { useQuery } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { Team } from "@shared/schema";
 
 export default function LiveLeaderboard() {
-  const { data: teams, isLoading } = useQuery({
+  const { data: teams, isLoading } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
-    refetchInterval: 15000, // Refresh every 15 seconds
-  });
-
-  const { data: myTeam } = useQuery({
-    queryKey: ["/api/teams/my-team"],
+    refetchInterval: 5000, // Refresh every 5 seconds
   });
 
   // Use WebSocket for real-time updates
   useWebSocket();
 
-  const getSuccessRate = (team: any) => {
-    if (team.totalAttempts === 0) return 0;
-    return Math.round((team.successfulAttempts / team.totalAttempts) * 100);
-  };
-
-  const getRankIcon = (index: number) => {
-    switch (index) {
-      case 0:
-        return <i className="fas fa-crown text-yellow-400"></i>;
-      case 1:
-        return <i className="fas fa-medal text-gray-300"></i>;
-      case 2:
-        return <i className="fas fa-award text-yellow-600"></i>;
-      default:
-        return null;
-    }
-  };
-
   if (isLoading) {
     return (
       <section className="mb-16">
-        <div className="animate-pulse">
-          <div className="h-8 bg-gaming-gray rounded w-1/3 mb-8"></div>
-          <div className="conquest-card rounded-xl">
-            <div className="bg-gaming-gray p-4">
-              <div className="h-6 bg-gaming-light rounded w-full"></div>
-            </div>
-            <div className="space-y-4 p-4">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="h-16 bg-gaming-gray rounded"></div>
-              ))}
-            </div>
+        <h2 className="font-orbitron font-bold text-3xl text-electric-blue mb-8 flex items-center">
+          <i className="fas fa-trophy mr-3"></i>
+          Live Leaderboard
+        </h2>
+        <div className="conquest-card rounded-xl p-6">
+          <div className="animate-pulse space-y-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <div key={i} className="flex items-center space-x-4">
+                <div className="w-12 h-12 bg-gaming-gray rounded-lg"></div>
+                <div className="flex-1">
+                  <div className="h-4 bg-gaming-gray rounded w-1/3 mb-2"></div>
+                  <div className="h-3 bg-gaming-gray rounded w-1/4"></div>  
+                </div>
+                <div className="h-6 bg-gaming-gray rounded w-16"></div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
     );
   }
 
+  const sortedTeams = teams ? [...teams].sort((a, b) => b.score - a.score) : [];
+
   return (
     <section id="leaderboard" className="mb-16">
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="font-orbitron font-bold text-3xl text-electric-blue flex items-center">
-          <i className="fas fa-trophy mr-3"></i>
-          Live Leaderboard
-        </h2>
-        <div className="flex items-center space-x-2 text-sm text-gray-400">
-          <div className="w-2 h-2 bg-neon-green rounded-full animate-pulse"></div>
-          <span>Live Updates</span>
-        </div>
-      </div>
+      <h2 className="font-orbitron font-bold text-3xl text-electric-blue mb-8 flex items-center">
+        <i className="fas fa-trophy mr-3"></i>
+        Live Leaderboard
+        <div className="ml-3 w-3 h-3 bg-neon-green rounded-full animate-pulse"></div>
+      </h2>
       
-      <div className="conquest-card rounded-xl overflow-hidden">
-        <div className="bg-gaming-gray p-4 border-b border-gaming-light">
-          <div className="grid grid-cols-5 gap-4 font-semibold text-gray-300">
-            <div>Rank</div>
-            <div>Team</div>
-            <div>Score</div>
-            <div>Conquered</div>
-            <div>Success Rate</div>
+      <div className="conquest-card rounded-xl p-6">
+        {!teams || teams.length === 0 ? (
+          <div className="text-center py-12">
+            <i className="fas fa-users text-gray-400 text-6xl mb-4"></i>
+            <h3 className="font-orbitron font-bold text-xl text-gray-400 mb-4">No Teams Yet</h3>
+            <p className="text-gray-500">Teams will appear here once they start participating in the hunt.</p>
           </div>
-        </div>
-        
-        {teams && teams.length > 0 ? (
-          <div>
-            {teams.map((team: any, index: number) => {
-              const isMyTeam = myTeam && myTeam.id === team.id;
-              const successRate = getSuccessRate(team);
-              
+        ) : (
+          <div className="space-y-4">
+            {sortedTeams.map((team, index) => {
+              const getRankIcon = (rank: number) => {
+                switch (rank) {
+                  case 0: return { icon: "fas fa-crown", color: "text-yellow-400", bg: "bg-yellow-400" };
+                  case 1: return { icon: "fas fa-medal", color: "text-gray-300", bg: "bg-gray-300" };
+                  case 2: return { icon: "fas fa-award", color: "text-yellow-600", bg: "bg-yellow-600" };
+                  default: return { icon: "fas fa-hashtag", color: "text-gray-400", bg: "bg-gray-400" };
+                }
+              };
+
+              const rankStyle = getRankIcon(index);
+
               return (
-                <div
+                <div 
                   key={team.id}
-                  className={`p-4 border-b border-gaming-light hover:bg-gaming-gray transition-colors ${
-                    isMyTeam ? 'bg-gaming-light bg-opacity-30' : ''
+                  className={`flex items-center justify-between p-4 rounded-lg transition-all hover:scale-105 ${
+                    index === 0 
+                      ? "bg-gradient-to-r from-yellow-400/10 to-yellow-600/10 border border-yellow-400/30 glow-effect" 
+                      : index === 1 
+                      ? "bg-gradient-to-r from-gray-300/10 to-gray-500/10 border border-gray-300/30"
+                      : index === 2
+                      ? "bg-gradient-to-r from-yellow-600/10 to-yellow-800/10 border border-yellow-600/30"
+                      : "bg-gaming-gray/50 border border-gaming-light/30"
                   }`}
                 >
-                  <div className="grid grid-cols-5 gap-4 items-center">
-                    <div className="flex items-center space-x-3">
-                      <span className={`font-orbitron font-bold text-xl ${
-                        index === 0 ? 'text-yellow-400' : 
-                        index === 1 ? 'text-gray-300' : 
-                        index === 2 ? 'text-yellow-600' : 
-                        isMyTeam ? 'text-electric-blue' : 'text-gray-300'
-                      }`}>
-                        #{index + 1}
-                      </span>
-                      {getRankIcon(index)}
+                  <div className="flex items-center space-x-4">
+                    <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
+                      index < 3 ? `bg-gradient-to-br from-${rankStyle.bg}/20 to-${rankStyle.bg}/10 border border-${rankStyle.bg}/30` : "bg-gaming-dark"
+                    }`}>
+                      <i className={`${rankStyle.icon} ${rankStyle.color} text-xl`}></i>
                     </div>
-                    <div className="flex items-center space-x-3">
-                      <div className="team-badge w-8 h-8 rounded-lg flex items-center justify-center">
-                        <i className="fas fa-users text-white text-sm"></i>
-                      </div>
-                      <span className={`font-semibold ${isMyTeam ? 'text-electric-blue' : 'text-white'}`}>
+                    <div>
+                      <h3 className="font-orbitron font-bold text-lg text-white">
                         {team.name}
-                      </span>
-                      {isMyTeam && (
-                        <span className="text-xs text-electric-blue bg-electric-blue bg-opacity-20 px-2 py-1 rounded">
-                          Your Team
-                        </span>
-                      )}
+                        {index === 0 && <i className="fas fa-star text-yellow-400 ml-2 animate-pulse"></i>}
+                      </h3>
+                      <p className="text-gray-400 text-sm">
+                        {team.members.length} members • {team.websitesConquered} conquests
+                      </p>
                     </div>
-                    <div className="font-bold text-neon-green text-lg">{team.score}</div>
-                    <div className="font-semibold text-electric-purple">{team.websitesConquered}</div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-16 bg-gaming-dark rounded-full h-2">
-                        <div
-                          className="bg-neon-green h-2 rounded-full progress-glow transition-all duration-300"
-                          style={{ width: `${successRate}%` }}
-                        ></div>
-                      </div>
-                      <span className="text-sm font-medium">{successRate}%</span>
+                  </div>
+                  
+                  <div className="text-right">
+                    <div className={`font-orbitron font-black text-2xl ${
+                      index === 0 ? "text-yellow-400" : 
+                      index === 1 ? "text-gray-300" : 
+                      index === 2 ? "text-yellow-600" : "text-electric-blue"
+                    }`}>
+                      {team.score}
                     </div>
+                    <div className="text-xs text-gray-400">points</div>
                   </div>
                 </div>
               );
             })}
-          </div>
-        ) : (
-          <div className="p-8 text-center">
-            <i className="fas fa-users text-gray-400 text-4xl mb-4"></i>
-            <p className="text-gray-400">No teams found</p>
           </div>
         )}
       </div>

@@ -35,6 +35,7 @@ export interface IStorage {
   getAvailableWebsites(): Promise<Website[]>;
   getWebsiteByUrl(url: string): Promise<Website | undefined>;
   createWebsite(website: InsertWebsite): Promise<Website>;
+  createWebsitesBulk(urls: string[]): Promise<Website[]>;
   conquerWebsite(websiteId: string, teamId: string): Promise<void>;
   
   // Conquest operations
@@ -46,6 +47,9 @@ export interface IStorage {
   getCurrentGameSession(): Promise<GameSession | undefined>;
   createGameSession(session: InsertGameSession): Promise<GameSession>;
   updateGameSession(id: string, updates: Partial<GameSession>): Promise<void>;
+  pauseCurrentGame(): Promise<GameSession>;
+  resumeCurrentGame(): Promise<GameSession>;
+  endCurrentGame(): Promise<GameSession>;
   
   // Admin operations
   getGameStats(): Promise<{
@@ -142,6 +146,20 @@ export class DatabaseStorage implements IStorage {
     return newWebsite;
   }
 
+  async createWebsitesBulk(urls: string[]): Promise<Website[]> {
+    const websiteData = urls.map(url => {
+      const domain = new URL(url).hostname;
+      return {
+        url,
+        domain,
+        points: 100,
+      };
+    });
+
+    const newWebsites = await db.insert(websites).values(websiteData).returning();
+    return newWebsites;
+  }
+
   async conquerWebsite(websiteId: string, teamId: string): Promise<void> {
     await db
       .update(websites)
@@ -208,6 +226,39 @@ export class DatabaseStorage implements IStorage {
       .update(gameSessions)
       .set(updates)
       .where(eq(gameSessions.id, id));
+  }
+
+  async pauseCurrentGame(): Promise<GameSession> {
+    const currentSession = await this.getCurrentGameSession();
+    if (!currentSession) {
+      throw new Error("No active game session to pause");
+    }
+
+    await this.updateGameSession(currentSession.id, { status: "paused" });
+    return { ...currentSession, status: "paused" };
+  }
+
+  async resumeCurrentGame(): Promise<GameSession> {
+    const currentSession = await this.getCurrentGameSession();
+    if (!currentSession) {
+      throw new Error("No game session to resume");
+    }
+
+    await this.updateGameSession(currentSession.id, { status: "active" });
+    return { ...currentSession, status: "active" };
+  }
+
+  async endCurrentGame(): Promise<GameSession> {
+    const currentSession = await this.getCurrentGameSession();
+    if (!currentSession) {
+      throw new Error("No game session to end");
+    }
+
+    await this.updateGameSession(currentSession.id, { 
+      status: "ended",
+      endTime: new Date()
+    });
+    return { ...currentSession, status: "ended", endTime: new Date() };
   }
 
   // Admin operations

@@ -1,129 +1,178 @@
-import { Card, CardContent } from "@/components/ui/card";
+import Navigation from "@/components/Navigation";
 import { Button } from "@/components/ui/button";
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-gaming-darker text-white">
+    <div className="min-h-screen bg-gaming-dark">
+      <Navigation />
+      
       {/* Hero Section */}
-      <section className="bg-gradient-to-br from-gaming-dark via-gaming-gray to-gaming-dark py-24">
+      <section className="pt-32 pb-20 bg-gradient-to-br from-gaming-dark via-gaming-gray to-gaming-dark">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h1 className="font-orbitron font-black text-6xl md:text-8xl mb-6 bg-gradient-to-r from-electric-blue to-neon-green bg-clip-text text-transparent">
-            WEBSITE HUNT
-          </h1>
-          <p className="text-2xl text-gray-300 max-w-4xl mx-auto mb-12">
-            The ultimate competitive gaming platform for IIIT Hyderabad teams. 
-            Discover, conquer, and dominate websites across the digital landscape to claim victory!
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
-            <Card className="conquest-card">
-              <CardContent className="p-8 text-center">
-                <i className="fas fa-crosshairs text-electric-blue text-4xl mb-4"></i>
-                <h3 className="font-orbitron font-bold text-xl text-electric-blue mb-3">Hunt & Conquer</h3>
-                <p className="text-gray-400">Find and claim IIIT websites to earn points and climb the leaderboard</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="conquest-card">
-              <CardContent className="p-8 text-center">
-                <i className="fas fa-users text-neon-green text-4xl mb-4"></i>
-                <h3 className="font-orbitron font-bold text-xl text-neon-green mb-3">Team Competition</h3>
-                <p className="text-gray-400">Form teams and compete against other groups in real-time battles</p>
-              </CardContent>
-            </Card>
-            
-            <Card className="conquest-card">
-              <CardContent className="p-8 text-center">
-                <i className="fas fa-trophy text-electric-purple text-4xl mb-4"></i>
-                <h3 className="font-orbitron font-bold text-xl text-electric-purple mb-3">Live Leaderboard</h3>
-                <p className="text-gray-400">Track your progress and see how you stack up against the competition</p>
-              </CardContent>
-            </Card>
+          <div className="mb-8">
+            <h1 className="font-orbitron font-black text-6xl md:text-8xl mb-6 bg-gradient-to-r from-electric-blue to-neon-green bg-clip-text text-transparent">
+              WEBSITE HUNT
+            </h1>
+            <p className="text-2xl text-gray-300 max-w-4xl mx-auto mb-8">
+              The ultimate competitive web discovery challenge for IIIT Hyderabad teams. 
+              Hunt, conquer, and dominate the digital landscape!
+            </p>
           </div>
-          
-          <Button 
-            onClick={() => window.location.href = "/api/login"}
-            className="bg-gradient-to-r from-electric-blue to-neon-green hover:opacity-90 text-white font-bold py-4 px-8 text-lg glow-effect"
-          >
-            <i className="fas fa-play mr-3"></i>
-            Enter the Hunt
-          </Button>
+
+          <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16">
+            <Button
+              onClick={() => window.location.href = "/api/login"}
+              size="lg"
+              className="bg-gradient-to-r from-electric-blue to-neon-green hover:opacity-90 text-white font-bold px-8 py-4 text-lg glow-effect"
+            >
+              <i className="fas fa-rocket mr-3"></i>
+              Start Hunting
+            </Button>
+            
+            <Button
+              onClick={() => window.location.href = "/api/login"}
+              size="lg"
+              variant="outline"
+              className="border-2 border-neon-green text-neon-green hover:bg-neon-green hover:text-black font-bold px-8 py-4 text-lg"
+            >
+              <i className="fas fa-cog mr-3"></i>
+              Admin Portal
+            </Button>
+          </div>
         </div>
       </section>
 
       {/* Features Section */}
-      <section className="py-20">
+      <section className="py-20 bg-gaming-gray">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="font-orbitron font-bold text-4xl text-electric-blue mb-4">Game Features</h2>
-            <p className="text-xl text-gray-400">Experience the thrill of competitive web hunting</p>
+            <h2 className="font-orbitron font-bold text-4xl text-electric-blue mb-4">
+              Game Features
+            </h2>
+            <p className="text-xl text-gray-300">
+              Everything you need for an epic web hunting competition
+            </p>
           </div>
-          
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
-            <div className="space-y-8">
-              <div className="flex items-start space-x-4">
-                <div className="w-12 h-12 bg-electric-blue bg-opacity-20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <i className="fas fa-bolt text-electric-blue text-xl"></i>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-xl text-white mb-2">Real-time Scoring</h3>
-                  <p className="text-gray-400">Get instant feedback with +100 points for successful conquests and -25 for wrong attempts</p>
-                </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="conquest-card rounded-xl p-8 text-center glow-effect">
+              <div className="w-16 h-16 bg-gradient-to-br from-electric-blue to-neon-green rounded-xl flex items-center justify-center mx-auto mb-6">
+                <i className="fas fa-users text-white text-2xl"></i>
               </div>
-              
-              <div className="flex items-start space-x-4">
-                <div className="w-12 h-12 bg-neon-green bg-opacity-20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <i className="fas fa-shield-alt text-neon-green text-xl"></i>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-xl text-white mb-2">Website Blocking</h3>
-                  <p className="text-gray-400">Successfully conquered websites are blocked for other teams, adding strategic depth</p>
-                </div>
-              </div>
-              
-              <div className="flex items-start space-x-4">
-                <div className="w-12 h-12 bg-electric-purple bg-opacity-20 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <i className="fas fa-cogs text-electric-purple text-xl"></i>
-                </div>
-                <div>
-                  <h3 className="font-semibold text-xl text-white mb-2">Admin Controls</h3>
-                  <p className="text-gray-400">Comprehensive management tools for teams, websites, and game sessions</p>
-                </div>
-              </div>
+              <h3 className="font-orbitron font-bold text-xl text-electric-blue mb-4">
+                Team Competition
+              </h3>
+              <p className="text-gray-300">
+                Form teams and compete against other IIIT groups. Custom team sizes with flexible member management.
+              </p>
             </div>
-            
-            <Card className="conquest-card p-8">
-              <h3 className="font-orbitron font-bold text-2xl text-electric-blue mb-6 text-center">Ready to Start?</h3>
-              <div className="space-y-4 text-center">
-                <div className="text-6xl">🎯</div>
-                <p className="text-gray-300">Join the competition and show your web hunting skills!</p>
-                <p className="text-sm text-gray-400">
-                  <i className="fas fa-info-circle mr-2"></i>
-                  IIIT Hyderabad exclusive gaming platform
-                </p>
+
+            <div className="conquest-card rounded-xl p-8 text-center glow-effect">
+              <div className="w-16 h-16 bg-gradient-to-br from-electric-blue to-neon-green rounded-xl flex items-center justify-center mx-auto mb-6">
+                <i className="fas fa-crosshairs text-white text-2xl"></i>
               </div>
-            </Card>
+              <h3 className="font-orbitron font-bold text-xl text-electric-blue mb-4">
+                Smart Scoring
+              </h3>
+              <p className="text-gray-300">
+                Earn +100 points for correct website discoveries. Strategic penalty of -25 points for wrong guesses.
+              </p>
+            </div>
+
+            <div className="conquest-card rounded-xl p-8 text-center glow-effect">
+              <div className="w-16 h-16 bg-gradient-to-br from-electric-blue to-neon-green rounded-xl flex items-center justify-center mx-auto mb-6">
+                <i className="fas fa-bolt text-white text-2xl"></i>
+              </div>
+              <h3 className="font-orbitron font-bold text-xl text-electric-blue mb-4">
+                Real-time Updates
+              </h3>
+              <p className="text-gray-300">
+                Live leaderboard updates, instant conquest notifications, and real-time game state changes.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works Section */}
+      <section className="py-20 bg-gaming-dark">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="font-orbitron font-bold text-4xl text-neon-green mb-4">
+              How It Works
+            </h2>
+            <p className="text-xl text-gray-300">
+              Simple rules, maximum excitement
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-electric-blue rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold">
+                1
+              </div>
+              <h3 className="font-orbitron font-bold text-lg text-white mb-2">
+                Join a Team
+              </h3>
+              <p className="text-gray-400">
+                Get assigned to a team or create one with your friends
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-20 h-20 bg-neon-green rounded-full flex items-center justify-center mx-auto mb-4 text-black text-2xl font-bold">
+                2
+              </div>
+              <h3 className="font-orbitron font-bold text-lg text-white mb-2">
+                Hunt Websites
+              </h3>
+              <p className="text-gray-400">
+                Discover and guess IIIT Hyderabad website URLs
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-20 h-20 bg-electric-purple rounded-full flex items-center justify-center mx-auto mb-4 text-white text-2xl font-bold">
+                3
+              </div>
+              <h3 className="font-orbitron font-bold text-lg text-white mb-2">
+                Earn Points
+              </h3>
+              <p className="text-gray-400">
+                Gain points for correct guesses, lose some for wrong ones
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-20 h-20 bg-yellow-400 rounded-full flex items-center justify-center mx-auto mb-4 text-black text-2xl font-bold">
+                4
+              </div>
+              <h3 className="font-orbitron font-bold text-lg text-white mb-2">
+                Win Glory
+              </h3>
+              <p className="text-gray-400">
+                Climb the leaderboard and claim victory!
+              </p>
+            </div>
           </div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-gaming-dark border-t border-gaming-light py-12">
+      <footer className="bg-gaming-darker border-t border-gaming-light py-12">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <p className="text-gray-400 mb-4">
-            &copy; 2024 Website Hunt Championship - IIIT Hyderabad. Built for competitive web exploration.
-          </p>
-          <div className="flex justify-center space-x-6">
-            <a href="#" className="text-gray-400 hover:text-electric-blue transition-colors">
-              <i className="fab fa-github text-xl"></i>
-            </a>
-            <a href="#" className="text-gray-400 hover:text-electric-blue transition-colors">
-              <i className="fab fa-discord text-xl"></i>
-            </a>
-            <a href="#" className="text-gray-400 hover:text-electric-blue transition-colors">
-              <i className="fas fa-envelope text-xl"></i>
-            </a>
+          <div className="flex items-center justify-center space-x-3 mb-4">
+            <div className="w-8 h-8 bg-gradient-to-br from-electric-blue to-neon-green rounded-lg flex items-center justify-center">
+              <i className="fas fa-crosshairs text-white"></i>
+            </div>
+            <h3 className="font-orbitron font-bold text-xl text-white">WEBSITE HUNT</h3>
           </div>
+          <p className="text-gray-400 mb-2">
+            A competitive web discovery platform for IIIT Hyderabad
+          </p>
+          <p className="text-gray-500 text-sm">
+            © 2024 Website Hunt Championship. Built for the digital hunters.
+          </p>
         </div>
       </footer>
     </div>

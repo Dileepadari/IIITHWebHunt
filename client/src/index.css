@@ -1,7 +1,126 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    /* Gaming Theme Colors */
+    --gaming-dark: #0a0a0a;
+    --gaming-darker: #050505;
+    --gaming-gray: #1a1a1a;
+    --gaming-light: #333333;
+    --electric-blue: #00d4ff;
+    --neon-green: #39ff14;
+    --electric-purple: #9d4edd;
+    
+    /* Shadcn UI Variables */
+    --background: #0a0a0a;
+    --foreground: #ffffff;
+    --card: #1a1a1a;
+    --card-foreground: #ffffff;
+    --popover: #1a1a1a;
+    --popover-foreground: #ffffff;
+    --primary: #00d4ff;
+    --primary-foreground: #000000;
+    --secondary: #333333;
+    --secondary-foreground: #ffffff;
+    --muted: #333333;
+    --muted-foreground: #9ca3af;
+    --accent: #1a1a1a;
+    --accent-foreground: #ffffff;
+    --destructive: #ef4444;
+    --destructive-foreground: #ffffff;
+    --border: #333333;
+    --input: #333333;
+    --ring: #00d4ff;
+  }
+}
+
+@layer components {
+  .font-orbitron {
+    font-family: 'Orbitron', monospace;
+  }
+  
+  .bg-gaming-dark {
+    background-color: var(--gaming-dark);
+  }
+  
+  .bg-gaming-darker {
+    background-color: var(--gaming-darker);
+  }
+  
+  .bg-gaming-gray {
+    background-color: var(--gaming-gray);
+  }
+  
+  .border-gaming-light {
+    border-color: var(--gaming-light);
+  }
+  
+  .text-electric-blue {
+    color: var(--electric-blue);
+  }
+  
+  .bg-electric-blue {
+    background-color: var(--electric-blue);
+  }
+  
+  .border-electric-blue {
+    border-color: var(--electric-blue);
+  }
+  
+  .text-neon-green {
+    color: var(--neon-green);
+  }
+  
+  .bg-neon-green {
+    background-color: var(--neon-green);
+  }
+  
+  .border-neon-green {
+    border-color: var(--neon-green);
+  }
+  
+  .text-electric-purple {
+    color: var(--electric-purple);
+  }
+  
+  .bg-electric-purple {
+    background-color: var(--electric-purple);
+  }
+  
+  .border-electric-purple {
+    border-color: var(--electric-purple);
+  }
+  
+  .conquest-card {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
+    border: 1px solid #333333;
+    box-shadow: 0 4px 20px rgba(0, 212, 255, 0.1);
+  }
+  
+  .team-badge {
+    background: linear-gradient(135deg, var(--electric-blue) 0%, var(--neon-green) 100%);
+  }
+  
+  .glow-effect {
+    box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+  }
+  
+  .shadow-neon {
+    box-shadow: 0 0 15px rgba(57, 255, 20, 0.5);
+  }
+}
+
+@layer utilities {
+  .text-transparent {
+    color: transparent;
+  }
+}
 
 :root {
   --background: hsl(220, 43%, 8%);

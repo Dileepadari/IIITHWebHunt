@@ -6,17 +6,18 @@ import { isUnauthorizedError } from "@/lib/authUtils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Team, Conquest } from "@shared/schema";
 
 export default function TeamDashboard() {
   const [conquestUrl, setConquestUrl] = useState("");
   const [urlValidated, setUrlValidated] = useState(false);
   const { toast } = useToast();
 
-  const { data: team, isLoading: teamLoading } = useQuery({
+  const { data: team, isLoading: teamLoading } = useQuery<Team>({
     queryKey: ["/api/teams/my-team"],
   });
 
-  const { data: teamConquests } = useQuery({
+  const { data: teamConquests } = useQuery<Conquest[]>({
     queryKey: ["/api/conquests/team", team?.id],
     enabled: !!team?.id,
   });

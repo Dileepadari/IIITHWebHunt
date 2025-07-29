@@ -3,11 +3,10 @@ import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface TeamRegistrationModalProps {
   isOpen: boolean;
@@ -16,25 +15,25 @@ interface TeamRegistrationModalProps {
 
 export default function TeamRegistrationModal({ isOpen, onClose }: TeamRegistrationModalProps) {
   const [teamName, setTeamName] = useState("");
-  const [teamSize, setTeamSize] = useState("4");
-  const [captainId, setCaptainId] = useState("");
-  const [members, setMembers] = useState<string[]>(["", "", "", ""]);
+  const [members, setMembers] = useState([""]);
   const { toast } = useToast();
 
   const createTeamMutation = useMutation({
-    mutationFn: async (teamData: any) => {
+    mutationFn: async (teamData: { name: string; members: string[] }) => {
       const response = await apiRequest("POST", "/api/teams", teamData);
       return await response.json();
     },
     onSuccess: () => {
       toast({
-        title: "Team Created Successfully! 🎉",
-        description: "The new team has been registered",
+        title: "Team Created! 🎉",
+        description: "The team has been successfully created.",
         variant: "default",
       });
-      resetForm();
-      onClose();
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+      setTeamName("");
+      setMembers([""]);
+      onClose();
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -56,23 +55,20 @@ export default function TeamRegistrationModal({ isOpen, onClose }: TeamRegistrat
     },
   });
 
-  const resetForm = () => {
-    setTeamName("");
-    setTeamSize("4");
-    setCaptainId("");
-    setMembers(["", "", "", ""]);
+  const addMemberField = () => {
+    setMembers([...members, ""]);
   };
 
-  const handleTeamSizeChange = (size: string) => {
-    setTeamSize(size);
-    const newMembers = Array(parseInt(size)).fill("").map((_, index) => members[index] || "");
-    setMembers(newMembers);
+  const removeMemberField = (index: number) => {
+    if (members.length > 1) {
+      setMembers(members.filter((_, i) => i !== index));
+    }
   };
 
-  const handleMemberChange = (index: number, value: string) => {
-    const newMembers = [...members];
-    newMembers[index] = value;
-    setMembers(newMembers);
+  const updateMember = (index: number, value: string) => {
+    const updatedMembers = [...members];
+    updatedMembers[index] = value;
+    setMembers(updatedMembers);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -81,27 +77,17 @@ export default function TeamRegistrationModal({ isOpen, onClose }: TeamRegistrat
     if (!teamName.trim()) {
       toast({
         title: "Team Name Required",
-        description: "Please enter a team name",
+        description: "Please enter a team name.",
         variant: "destructive",
       });
       return;
     }
 
-    if (!captainId.trim()) {
+    const validMembers = members.filter(member => member.trim().length > 0);
+    if (validMembers.length === 0) {
       toast({
-        title: "Captain ID Required",
-        description: "Please enter the captain's user ID",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const filteredMembers = members.filter(member => member.trim().length > 0);
-    
-    if (filteredMembers.length === 0) {
-      toast({
-        title: "Team Members Required",
-        description: "Please add at least one team member",
+        title: "Members Required",
+        description: "Please add at least one team member.",
         variant: "destructive",
       });
       return;
@@ -109,24 +95,30 @@ export default function TeamRegistrationModal({ isOpen, onClose }: TeamRegistrat
 
     createTeamMutation.mutate({
       name: teamName.trim(),
-      captainId: captainId.trim(),
-      members: filteredMembers,
+      members: validMembers.map(member => member.trim()),
     });
   };
 
+  const handleClose = () => {
+    if (createTeamMutation.isPending) return;
+    setTeamName("");
+    setMembers([""]);
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="conquest-card border-electric-blue border-opacity-30 max-w-2xl">
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent className="conquest-card border border-gaming-light max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-orbitron font-bold text-2xl text-electric-blue flex items-center">
+          <DialogTitle className="text-neon-green flex items-center">
             <i className="fas fa-users mr-3"></i>
-            Team Registration
+            Create New Team
           </DialogTitle>
         </DialogHeader>
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <Label htmlFor="team-name" className="block text-sm font-medium text-gray-300 mb-2">
+            <Label htmlFor="team-name" className="text-gray-300">
               Team Name
             </Label>
             <Input
@@ -135,77 +127,68 @@ export default function TeamRegistrationModal({ isOpen, onClose }: TeamRegistrat
               placeholder="Enter team name"
               value={teamName}
               onChange={(e) => setTeamName(e.target.value)}
-              className="w-full bg-gaming-dark border border-gaming-light text-white placeholder-gray-500 focus:border-electric-blue"
+              className="mt-2 bg-gaming-dark border-gaming-light text-white"
+              disabled={createTeamMutation.isPending}
             />
           </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <Label htmlFor="team-size" className="block text-sm font-medium text-gray-300 mb-2">
-                Team Size
-              </Label>
-              <Select value={teamSize} onValueChange={handleTeamSizeChange}>
-                <SelectTrigger className="w-full bg-gaming-dark border border-gaming-light text-white">
-                  <SelectValue placeholder="Select team size" />
-                </SelectTrigger>
-                <SelectContent className="bg-gaming-dark border border-gaming-light">
-                  <SelectItem value="3">3 Members</SelectItem>
-                  <SelectItem value="4">4 Members</SelectItem>
-                  <SelectItem value="5">5 Members</SelectItem>
-                  <SelectItem value="6">6 Members</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div>
-              <Label htmlFor="captain-id" className="block text-sm font-medium text-gray-300 mb-2">
-                Captain User ID
-              </Label>
-              <Input
-                id="captain-id"
-                type="text"
-                placeholder="Captain's user ID"
-                value={captainId}
-                onChange={(e) => setCaptainId(e.target.value)}
-                className="w-full bg-gaming-dark border border-gaming-light text-white placeholder-gray-500 focus:border-electric-blue"
-              />
-            </div>
-          </div>
-          
+
           <div>
-            <Label className="block text-sm font-medium text-gray-300 mb-4">
-              Team Members (User IDs)
+            <Label className="text-gray-300 mb-3 block">
+              Team Members
             </Label>
             <div className="space-y-3">
               {members.map((member, index) => (
-                <Input
-                  key={index}
-                  type="text"
-                  placeholder={`Member ${index + 1} user ID`}
-                  value={member}
-                  onChange={(e) => handleMemberChange(index, e.target.value)}
-                  className="w-full bg-gaming-dark border border-gaming-light text-white placeholder-gray-500 focus:border-electric-blue"
-                />
+                <div key={index} className="flex items-center space-x-2">
+                  <Input
+                    type="text"
+                    placeholder={`Member ${index + 1} name`}
+                    value={member}
+                    onChange={(e) => updateMember(index, e.target.value)}
+                    className="flex-1 bg-gaming-dark border-gaming-light text-white"
+                    disabled={createTeamMutation.isPending}
+                  />
+                  {members.length > 1 && (
+                    <Button
+                      type="button"
+                      onClick={() => removeMemberField(index)}
+                      variant="outline"
+                      size="sm"
+                      className="border-red-400 text-red-400 hover:bg-red-400 hover:text-white"
+                      disabled={createTeamMutation.isPending}
+                    >
+                      <i className="fas fa-times"></i>
+                    </Button>
+                  )}
+                </div>
               ))}
+              <Button
+                type="button"
+                onClick={addMemberField}
+                variant="outline"
+                size="sm"
+                className="border-electric-blue text-electric-blue hover:bg-electric-blue hover:text-white"
+                disabled={createTeamMutation.isPending}
+              >
+                <i className="fas fa-plus mr-2"></i>
+                Add Member
+              </Button>
             </div>
           </div>
-          
-          <div className="flex justify-end space-x-4">
+
+          <div className="flex items-center justify-end space-x-3 pt-4">
             <Button
               type="button"
-              onClick={() => {
-                resetForm();
-                onClose();
-              }}
+              onClick={handleClose}
               variant="outline"
-              className="px-6 py-3 bg-gaming-light text-white border-gaming-light hover:bg-opacity-80"
+              className="border-gray-400 text-gray-400 hover:bg-gray-400 hover:text-white"
+              disabled={createTeamMutation.isPending}
             >
               Cancel
             </Button>
             <Button
               type="submit"
               disabled={createTeamMutation.isPending}
-              className="px-6 py-3 bg-gradient-to-r from-electric-blue to-neon-green text-white font-semibold glow-effect"
+              className="bg-gradient-to-r from-electric-blue to-neon-green hover:opacity-90 text-white font-semibold"
             >
               {createTeamMutation.isPending ? (
                 <>
@@ -214,8 +197,8 @@ export default function TeamRegistrationModal({ isOpen, onClose }: TeamRegistrat
                 </>
               ) : (
                 <>
-                  <i className="fas fa-plus mr-2"></i>
-                  Register Team
+                  <i className="fas fa-check mr-2"></i>
+                  Create Team
                 </>
               )}
             </Button>

@@ -1,13 +1,20 @@
 import { useQuery } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/useWebSocket";
+import { GameSession } from "@shared/schema";
+
+interface GameStats {
+  totalWebsites: number;
+  conquered: number;
+  activeTeams: number;
+}
 
 export default function GameHero() {
-  const { data: stats } = useQuery({
+  const { data: stats } = useQuery<GameStats>({
     queryKey: ["/api/admin/stats"],
     refetchInterval: 30000, // Refresh every 30 seconds
   });
 
-  const { data: gameSession } = useQuery({
+  const { data: gameSession } = useQuery<GameSession>({
     queryKey: ["/api/game/current"],
     refetchInterval: 10000, // Refresh every 10 seconds
   });
@@ -34,7 +41,7 @@ export default function GameHero() {
   };
 
   return (
-    <section className="bg-gradient-to-br from-gaming-dark via-gaming-gray to-gaming-dark py-16">
+    <section className="bg-gradient-to-br from-gaming-dark via-gaming-gray to-gaming-dark py-16 mt-26">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
           <h1 className="font-orbitron font-black text-5xl md:text-7xl mb-4 bg-gradient-to-r from-electric-blue to-neon-green bg-clip-text text-transparent">

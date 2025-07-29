@@ -1,82 +1,55 @@
-import { useEffect, useRef } from "react";
-import { queryClient } from "@/lib/queryClient";
+import { useEffect } from 'react';
+import { queryClient } from '@/lib/queryClient';
 
 export function useWebSocket() {
-  const wsRef = useRef<WebSocket | null>(null);
-
   useEffect(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/ws`;
-
-    const connectWebSocket = () => {
+    
+    const socket = new WebSocket(wsUrl);
+    
+    socket.onopen = () => {
+      console.log('WebSocket connected');
+    };
+    
+    socket.onmessage = (event) => {
       try {
-        wsRef.current = new WebSocket(wsUrl);
-
-        wsRef.current.onopen = () => {
-          console.log("WebSocket connected");
-        };
-
-        wsRef.current.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data);
-            console.log("WebSocket message received:", data);
-
-            // Handle different types of real-time updates
-            switch (data.type) {
-              case 'CONQUEST_RESULT':
-                // Invalidate relevant queries to refresh data
-                queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
-                queryClient.invalidateQueries({ queryKey: ["/api/conquests/recent"] });
-                queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
-                break;
-              
-              case 'TEAM_CREATED':
-                queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
-                break;
-              
-              case 'GAME_STARTED':
-              case 'GAME_UPDATED':
-                queryClient.invalidateQueries({ queryKey: ["/api/game/current"] });
-                break;
-              
-              default:
-                console.log("Unknown WebSocket message type:", data.type);
-            }
-          } catch (error) {
-            console.error("Error parsing WebSocket message:", error);
-          }
-        };
-
-        wsRef.current.onclose = (event) => {
-          console.log("WebSocket connection closed:", event.code, event.reason);
-          
-          // Attempt to reconnect after a delay if not closed intentionally
-          if (event.code !== 1000) {
-            setTimeout(() => {
-              console.log("Attempting to reconnect WebSocket...");
-              connectWebSocket();
-            }, 3000);
-          }
-        };
-
-        wsRef.current.onerror = (error) => {
-          console.error("WebSocket error:", error);
-        };
+        const data = JSON.parse(event.data);
+        
+        // Invalidate relevant queries based on the event type
+        switch (data.type) {
+          case 'conquest':
+            queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/conquests'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/teams/my-team'] });
+            break;
+          case 'team_update':
+            queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/teams/my-team'] });
+            break;
+          case 'game_update':
+            queryClient.invalidateQueries({ queryKey: ['/api/game/current'] });
+            queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
+            break;
+          default:
+            // Refresh all queries for unknown events
+            queryClient.invalidateQueries();
+        }
       } catch (error) {
-        console.error("Failed to create WebSocket connection:", error);
+        console.error('Error parsing WebSocket message:', error);
       }
     };
-
-    connectWebSocket();
-
-    // Cleanup on unmount
+    
+    socket.onclose = () => {
+      console.log('WebSocket disconnected');
+    };
+    
+    socket.onerror = (error) => {
+      console.error('WebSocket error:', error);
+    };
+    
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close(1000, "Component unmounting");
-        wsRef.current = null;
-      }
+      socket.close();
     };
   }, []);
-
-  return wsRef.current;
 }

@@ -7,27 +7,43 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import TeamRegistrationModal from "./TeamRegistrationModal";
+import { Team, Website, GameSession } from "@shared/schema";
+
+interface GameStats {
+  totalWebsites: number;
+  conquered: number;
+  activeTeams: number;
+}
 
 export default function AdminPanel() {
+  const [activeTab, setActiveTab] = useState("overview");
   const [showTeamModal, setShowTeamModal] = useState(false);
-  const [newWebsiteUrl, setNewWebsiteUrl] = useState("");
+  const [newGameDuration, setNewGameDuration] = useState("");
+  const [bulkWebsites, setBulkWebsites] = useState("");
   const { toast } = useToast();
 
-  const { data: stats } = useQuery({
+  // Queries
+  const { data: stats } = useQuery<GameStats>({
     queryKey: ["/api/admin/stats"],
-    refetchInterval: 30000,
   });
 
-  const { data: gameSession } = useQuery({
-    queryKey: ["/api/game/current"],
-  });
-
-  const { data: teams } = useQuery({
+  const { data: teams } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
   });
 
-  // Game control mutations
+  const { data: websites } = useQuery<Website[]>({
+    queryKey: ["/api/websites"],
+  });
+
+  const { data: gameSession } = useQuery<GameSession>({
+    queryKey: ["/api/game/current"],
+  });
+
+  // Mutations
   const startGameMutation = useMutation({
     mutationFn: async (duration: number) => {
       const response = await apiRequest("POST", "/api/game/start", { duration });
@@ -35,8 +51,42 @@ export default function AdminPanel() {
     },
     onSuccess: () => {
       toast({
-        title: "Game Started",
-        description: "The website hunt has begun!",
+        title: "Game Started! 🎮",
+        description: "The Website Hunt has begun!",
+        variant: "default",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/game/current"] });
+      setNewGameDuration("");
+    },
+    onError: (error) => {
+      if (isUnauthorizedError(error)) {
+        toast({
+          title: "Unauthorized",
+          description: "You are logged out. Logging in again...",
+          variant: "destructive",
+        });
+        setTimeout(() => {
+          window.location.href = "/api/login";
+        }, 500);
+        return;
+      }
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const pauseGameMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("POST", "/api/game/pause", {});
+      return await response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Game Paused",
+        description: "The game has been paused.",
         variant: "default",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/game/current"] });
@@ -61,15 +111,15 @@ export default function AdminPanel() {
     },
   });
 
-  const pauseGameMutation = useMutation({
+  const resumeGameMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("PATCH", `/api/game/${gameSession?.id}`, { status: "paused" });
+      const response = await apiRequest("POST", "/api/game/resume", {});
       return await response.json();
     },
     onSuccess: () => {
       toast({
-        title: "Game Paused",
-        description: "The game has been paused",
+        title: "Game Resumed",
+        description: "The game has been resumed.",
         variant: "default",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/game/current"] });
@@ -96,16 +146,13 @@ export default function AdminPanel() {
 
   const endGameMutation = useMutation({
     mutationFn: async () => {
-      const response = await apiRequest("PATCH", `/api/game/${gameSession?.id}`, { 
-        status: "ended",
-        endTime: new Date().toISOString()
-      });
+      const response = await apiRequest("POST", "/api/game/end", {});
       return await response.json();
     },
     onSuccess: () => {
       toast({
         title: "Game Ended",
-        description: "The website hunt has ended",
+        description: "The Website Hunt has ended.",
         variant: "default",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/game/current"] });
@@ -130,23 +177,20 @@ export default function AdminPanel() {
     },
   });
 
-  // Website management
-  const addWebsiteMutation = useMutation({
-    mutationFn: async (urls: string[]) => {
-      const promises = urls.map(url => {
-        const domain = new URL(url).hostname;
-        return apiRequest("POST", "/api/websites", { url, domain });
-      });
-      return await Promise.all(promises);
+  const addWebsitesMutation = useMutation({
+    mutationFn: async (websiteUrls: string[]) => {
+      const response = await apiRequest("POST", "/api/websites/bulk", { urls: websiteUrls });
+      return await response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
       toast({
         title: "Websites Added",
-        description: "New websites have been added to the database",
+        description: `Successfully added ${data.count} websites.`,
         variant: "default",
       });
-      setNewWebsiteUrl("");
+      queryClient.invalidateQueries({ queryKey: ["/api/websites"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
+      setBulkWebsites("");
     },
     onError: (error) => {
       if (isUnauthorizedError(error)) {
@@ -168,191 +212,388 @@ export default function AdminPanel() {
     },
   });
 
-  const handleAddWebsites = () => {
-    if (!newWebsiteUrl.trim()) {
+  const handleStartGame = () => {
+    const duration = parseInt(newGameDuration);
+    if (!duration || duration <= 0) {
       toast({
-        title: "URLs Required",
-        description: "Please enter at least one website URL",
+        title: "Invalid Duration",
+        description: "Please enter a valid game duration in minutes.",
+        variant: "destructive",
+      });
+      return;
+    }
+    startGameMutation.mutate(duration);
+  };
+
+  const handleBulkAddWebsites = () => {
+    if (!bulkWebsites.trim()) {
+      toast({
+        title: "No URLs Provided",
+        description: "Please enter website URLs to add.",
         variant: "destructive",
       });
       return;
     }
 
-    const urls = newWebsiteUrl
+    const urls = bulkWebsites
       .split('\n')
       .map(url => url.trim())
-      .filter(url => url.length > 0)
-      .filter(url => {
-        try {
-          new URL(url);
-          return true;
-        } catch {
-          return false;
-        }
-      });
+      .filter(url => url.length > 0 && url.includes('iiit.ac.in'));
 
     if (urls.length === 0) {
       toast({
-        title: "Invalid URLs",
-        description: "Please enter valid website URLs",
+        title: "No Valid URLs",
+        description: "Please enter valid IIIT Hyderabad website URLs.",
         variant: "destructive",
       });
       return;
     }
 
-    addWebsiteMutation.mutate(urls);
+    addWebsitesMutation.mutate(urls);
   };
 
+  const getGameStatusColor = () => {
+    switch (gameSession?.status) {
+      case 'active': return 'text-neon-green';
+      case 'paused': return 'text-yellow-400';
+      case 'ended': return 'text-red-400';
+      default: return 'text-gray-400';
+    }
+  };
+
+  const getGameStatusIcon = () => {
+    switch (gameSession?.status) {
+      case 'active': return 'fas fa-play';
+      case 'paused': return 'fas fa-pause';
+      case 'ended': return 'fas fa-stop';
+      default: return 'fas fa-clock';
+    }
+  };
+
+  const tabs = [
+    { id: "overview", label: "Overview", icon: "fas fa-tachometer-alt" },
+    { id: "game", label: "Game Control", icon: "fas fa-gamepad" },
+    { id: "teams", label: "Teams", icon: "fas fa-users" },
+    { id: "websites", label: "Websites", icon: "fas fa-globe" },
+  ];
+
   return (
-    <section id="admin" className="mb-16">
-      <div className="flex items-center justify-between mb-8">
-        <h2 className="font-orbitron font-bold text-3xl text-electric-blue flex items-center">
-          <i className="fas fa-cog mr-3"></i>
-          Admin Control Panel
-        </h2>
-        <div className="flex items-center space-x-2">
-          <div className="w-2 h-2 bg-electric-blue rounded-full"></div>
-          <span className="text-sm text-gray-400">Admin Access</span>
+    <div className="space-y-8">
+      {/* Tab Navigation */}
+      <div className="conquest-card rounded-xl p-2">
+        <div className="flex space-x-2 overflow-x-auto">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center space-x-2 px-4 py-3 rounded-lg transition-all whitespace-nowrap ${
+                activeTab === tab.id
+                  ? "bg-gradient-to-r from-neon-green to-electric-blue text-white font-semibold"
+                  : "text-gray-400 hover:text-white hover:bg-gaming-gray"
+              }`}
+            >
+              <i className={tab.icon}></i>
+              <span>{tab.label}</span>
+            </button>
+          ))}
         </div>
       </div>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Game Controls */}
-        <div className="conquest-card rounded-xl p-6">
-          <h3 className="font-semibold text-lg text-electric-blue mb-6 flex items-center">
-            <i className="fas fa-play-circle mr-2"></i>
-            Game Controls
-          </h3>
-          
-          <div className="space-y-4">
-            <Button
-              onClick={() => startGameMutation.mutate(180)}
-              disabled={gameSession?.status === 'active' || startGameMutation.isPending}
-              className="w-full bg-neon-green hover:bg-opacity-80 text-white font-semibold glow-effect"
-            >
-              <i className="fas fa-play mr-2"></i>
-              {startGameMutation.isPending ? "Starting..." : "Start Game"}
-            </Button>
-            
-            <Button
-              onClick={() => pauseGameMutation.mutate()}
-              disabled={gameSession?.status !== 'active' || pauseGameMutation.isPending}
-              className="w-full bg-yellow-500 hover:bg-opacity-80 text-white font-semibold glow-effect"
-            >
-              <i className="fas fa-pause mr-2"></i>
-              {pauseGameMutation.isPending ? "Pausing..." : "Pause Game"}
-            </Button>
-            
-            <Button
-              onClick={() => endGameMutation.mutate()}
-              disabled={!gameSession || gameSession.status === 'ended' || endGameMutation.isPending}
-              className="w-full bg-danger-red hover:bg-opacity-80 text-white font-semibold glow-effect"
-            >
-              <i className="fas fa-stop mr-2"></i>
-              {endGameMutation.isPending ? "Ending..." : "End Game"}
-            </Button>
 
-            <div className="mt-4 p-3 bg-gaming-dark rounded-lg">
-              <p className="text-sm text-gray-400">Current Status:</p>
-              <p className={`font-semibold ${
-                gameSession?.status === 'active' ? 'text-neon-green' :
-                gameSession?.status === 'paused' ? 'text-yellow-400' :
-                gameSession?.status === 'ended' ? 'text-danger-red' :
-                'text-gray-400'
-              }`}>
-                {gameSession?.status ? gameSession.status.toUpperCase() : 'NO ACTIVE SESSION'}
-              </p>
-            </div>
-          </div>
+      {/* Overview Tab */}
+      {activeTab === "overview" && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Card className="conquest-card border-none">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-electric-blue flex items-center">
+                <i className="fas fa-globe mr-2"></i>
+                Total Websites
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-orbitron font-bold text-white">
+                {stats?.totalWebsites || 0}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="conquest-card border-none">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-neon-green flex items-center">
+                <i className="fas fa-flag mr-2"></i>
+                Conquered
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-orbitron font-bold text-white">
+                {stats?.conquered || 0}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="conquest-card border-none">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-electric-purple flex items-center">
+                <i className="fas fa-users mr-2"></i>
+                Active Teams
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-orbitron font-bold text-white">
+                {stats?.activeTeams || 0}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="conquest-card border-none">
+            <CardHeader className="pb-2">
+              <CardTitle className={`flex items-center ${getGameStatusColor()}`}>
+                <i className={`${getGameStatusIcon()} mr-2`}></i>
+                Game Status
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-xl font-orbitron font-bold capitalize ${getGameStatusColor()}`}>
+                {gameSession?.status || 'Not Started'}
+              </div>
+            </CardContent>
+          </Card>
         </div>
-        
-        {/* Team Management */}
-        <div className="conquest-card rounded-xl p-6">
-          <h3 className="font-semibold text-lg text-electric-blue mb-6 flex items-center">
-            <i className="fas fa-users-cog mr-2"></i>
-            Team Management
-          </h3>
-          
-          <div className="space-y-4 max-h-60 overflow-y-auto">
-            {teams && teams.length > 0 ? (
-              teams.map((team: any) => (
-                <div key={team.id} className="flex items-center justify-between p-3 bg-gaming-dark rounded-lg">
+      )}
+
+      {/* Game Control Tab */}
+      {activeTab === "game" && (
+        <div className="space-y-6">
+          <Card className="conquest-card border-none">
+            <CardHeader>
+              <CardTitle className="text-neon-green flex items-center">
+                <i className="fas fa-gamepad mr-3"></i>
+                Game Session Control
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {!gameSession || gameSession.status === 'ended' ? (
+                <div className="space-y-4">
                   <div>
-                    <p className="font-medium text-sm">{team.name}</p>
-                    <p className="text-xs text-gray-400">{team.members.length} members • Score: {team.score}</p>
+                    <Label htmlFor="duration" className="text-gray-300">
+                      Game Duration (minutes)
+                    </Label>
+                    <Input
+                      id="duration"
+                      type="number"
+                      placeholder="60"
+                      value={newGameDuration}
+                      onChange={(e) => setNewGameDuration(e.target.value)}
+                      className="mt-2 bg-gaming-dark border-gaming-light text-white"
+                    />
                   </div>
-                  <div className="flex space-x-2">
-                    <button className="text-electric-blue hover:text-neon-green transition-colors">
-                      <i className="fas fa-edit"></i>
-                    </button>
-                  </div>
+                  <Button
+                    onClick={handleStartGame}
+                    disabled={startGameMutation.isPending}
+                    className="bg-gradient-to-r from-neon-green to-electric-blue hover:opacity-90 text-white font-semibold"
+                  >
+                    {startGameMutation.isPending ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                        Starting...
+                      </>
+                    ) : (
+                      <>
+                        <i className="fas fa-play mr-2"></i>
+                        Start New Game
+                      </>
+                    )}
+                  </Button>
                 </div>
-              ))
-            ) : (
-              <div className="text-center py-4">
-                <i className="fas fa-users text-gray-400 text-2xl mb-2"></i>
-                <p className="text-gray-400 text-sm">No teams found</p>
-              </div>
-            )}
-          </div>
-          
-          <Button
-            onClick={() => setShowTeamModal(true)}
-            className="w-full mt-4 bg-electric-blue hover:bg-opacity-80 text-white font-semibold glow-effect"
-          >
-            <i className="fas fa-plus mr-2"></i>
-            Add New Team
-          </Button>
+              ) : (
+                <div className="flex flex-wrap gap-4">
+                  {gameSession.status === 'active' && (
+                    <>
+                      <Button
+                        onClick={() => pauseGameMutation.mutate()}
+                        disabled={pauseGameMutation.isPending}
+                        variant="outline"
+                        className="border-yellow-400 text-yellow-400 hover:bg-yellow-400 hover:text-black"
+                      >
+                        <i className="fas fa-pause mr-2"></i>
+                        Pause Game
+                      </Button>
+                      <Button
+                        onClick={() => endGameMutation.mutate()}
+                        disabled={endGameMutation.isPending}
+                        variant="outline"
+                        className="border-red-400 text-red-400 hover:bg-red-400 hover:text-white"
+                      >
+                        <i className="fas fa-stop mr-2"></i>
+                        End Game
+                      </Button>
+                    </>
+                  )}
+                  
+                  {gameSession.status === 'paused' && (
+                    <>
+                      <Button
+                        onClick={() => resumeGameMutation.mutate()}
+                        disabled={resumeGameMutation.isPending}
+                        className="bg-neon-green hover:bg-neon-green/80 text-black font-semibold"
+                      >
+                        <i className="fas fa-play mr-2"></i>
+                        Resume Game
+                      </Button>
+                      <Button
+                        onClick={() => endGameMutation.mutate()}
+                        disabled={endGameMutation.isPending}
+                        variant="outline"
+                        className="border-red-400 text-red-400 hover:bg-red-400 hover:text-white"
+                      >
+                        <i className="fas fa-stop mr-2"></i>
+                        End Game
+                      </Button>
+                    </>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-        
-        {/* Website Database */}
-        <div className="conquest-card rounded-xl p-6">
-          <h3 className="font-semibold text-lg text-electric-blue mb-6 flex items-center">
-            <i className="fas fa-database mr-2"></i>
-            Website Database
-          </h3>
-          
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4 text-center">
-              <div className="bg-gaming-dark p-3 rounded-lg">
-                <p className="text-2xl font-bold text-neon-green">{stats?.totalWebsites || 0}</p>
-                <p className="text-xs text-gray-400">Total Sites</p>
-              </div>
-              <div className="bg-gaming-dark p-3 rounded-lg">
-                <p className="text-2xl font-bold text-danger-red">{stats?.conquered || 0}</p>
-                <p className="text-xs text-gray-400">Conquered</p>
-              </div>
-            </div>
-            
-            <div className="space-y-3">
-              <Label htmlFor="new-websites" className="text-sm font-medium text-gray-300">
-                Add Websites (one per line)
-              </Label>
-              <Textarea
-                id="new-websites"
-                placeholder="https://students.iiit.ac.in&#10;https://research.iiit.ac.in&#10;https://library.iiit.ac.in"
-                value={newWebsiteUrl}
-                onChange={(e) => setNewWebsiteUrl(e.target.value)}
-                className="bg-gaming-dark border border-gaming-light text-white placeholder-gray-500 min-h-[100px]"
-              />
+      )}
+
+      {/* Teams Tab */}
+      {activeTab === "teams" && (
+        <div className="space-y-6">
+          <Card className="conquest-card border-none">
+            <CardHeader className="flex flex-row items-center justify-between">
+              <CardTitle className="text-electric-blue flex items-center">
+                <i className="fas fa-users mr-3"></i>
+                Team Management
+              </CardTitle>
               <Button
-                onClick={handleAddWebsites}
-                disabled={addWebsiteMutation.isPending}
-                className="w-full bg-neon-green hover:bg-opacity-80 text-white font-semibold glow-effect"
+                onClick={() => setShowTeamModal(true)}
+                className="bg-gradient-to-r from-electric-blue to-neon-green hover:opacity-90 text-white font-semibold"
               >
                 <i className="fas fa-plus mr-2"></i>
-                {addWebsiteMutation.isPending ? "Adding..." : "Add Websites"}
+                Add Team
               </Button>
-            </div>
-          </div>
+            </CardHeader>
+            <CardContent>
+              {(!teams || teams.length === 0) ? (
+                <div className="text-center py-12">
+                  <i className="fas fa-users text-gray-400 text-6xl mb-4"></i>
+                  <h3 className="font-orbitron font-bold text-xl text-gray-400 mb-4">No Teams Yet</h3>
+                  <p className="text-gray-500">Add teams to get the competition started!</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {teams.map((team) => (
+                    <div 
+                      key={team.id}
+                      className="bg-gaming-gray rounded-lg p-4 border border-gaming-light"
+                    >
+                      <div className="flex items-center justify-between mb-3">
+                        <h3 className="font-orbitron font-bold text-white">{team.name}</h3>
+                        <span className="text-electric-blue font-bold">{team.score} pts</span>
+                      </div>
+                      <div className="text-sm text-gray-400 space-y-1">
+                        <div className="flex justify-between">
+                          <span>Members:</span>
+                          <span>{team.members.length}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Conquests:</span>
+                          <span>{team.websitesConquered}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
-      </div>
+      )}
+
+      {/* Websites Tab */}
+      {activeTab === "websites" && (
+        <div className="space-y-6">
+          <Card className="conquest-card border-none">
+            <CardHeader>
+              <CardTitle className="text-electric-blue flex items-center">
+                <i className="fas fa-globe mr-3"></i>
+                Website Management
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div>
+                <Label htmlFor="bulk-websites" className="text-gray-300 mb-2 block">
+                  Add Websites (one URL per line)
+                </Label>
+                <Textarea
+                  id="bulk-websites"
+                  placeholder="https://example1.iiit.ac.in&#10;https://example2.iiit.ac.in&#10;https://example3.iiit.ac.in"
+                  value={bulkWebsites}
+                  onChange={(e) => setBulkWebsites(e.target.value)}
+                  className="bg-gaming-dark border-gaming-light text-white min-h-[120px]"
+                />
+                <Button
+                  onClick={handleBulkAddWebsites}
+                  disabled={addWebsitesMutation.isPending}
+                  className="mt-4 bg-gradient-to-r from-electric-blue to-neon-green hover:opacity-90 text-white font-semibold"
+                >
+                  {addWebsitesMutation.isPending ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fas fa-plus mr-2"></i>
+                      Add Websites
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              <div className="border-t border-gaming-light pt-6">
+                <h3 className="font-orbitron font-bold text-white mb-4">
+                  Current Websites ({websites?.length || 0})
+                </h3>
+                {(!websites || websites.length === 0) ? (
+                  <div className="text-center py-8">
+                    <i className="fas fa-globe text-gray-400 text-4xl mb-4"></i>
+                    <p className="text-gray-400">No websites added yet</p>
+                    <p className="text-gray-500 text-sm">Add some IIIT websites to start the hunt!</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
+                    {websites.map((website, index) => (
+                      <div 
+                        key={index}
+                        className={`p-2 rounded text-sm ${
+                          website.isConquered 
+                            ? "bg-neon-green/20 border border-neon-green/30 text-neon-green" 
+                            : "bg-gaming-gray border border-gaming-light text-gray-300"
+                        }`}
+                      >
+                        <div className="flex items-center space-x-2">
+                          <i className={`fas fa-${website.isConquered ? 'check-circle' : 'circle'} text-xs`}></i>
+                          <span className="truncate">{website.url}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Team Registration Modal */}
-      <TeamRegistrationModal 
-        isOpen={showTeamModal}
-        onClose={() => setShowTeamModal(false)}
-      />
-    </section>
+      {showTeamModal && (
+        <TeamRegistrationModal
+          isOpen={showTeamModal}
+          onClose={() => setShowTeamModal(false)}
+        />
+      )}
+    </div>
   );
 }
