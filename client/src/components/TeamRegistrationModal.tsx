@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { isUnauthorizedError } from "@/lib/authUtils";
@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { User } from "@shared/schema";
 
 interface TeamRegistrationModalProps {
   isOpen: boolean;
@@ -15,11 +17,18 @@ interface TeamRegistrationModalProps {
 
 export default function TeamRegistrationModal({ isOpen, onClose }: TeamRegistrationModalProps) {
   const [teamName, setTeamName] = useState("");
+  const [captainId, setCaptainId] = useState("");
   const [members, setMembers] = useState([""]);
   const { toast } = useToast();
 
+  // Fetch all users for captain selection
+  const { data: users } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    enabled: isOpen,
+  });
+
   const createTeamMutation = useMutation({
-    mutationFn: async (teamData: { name: string; members: string[] }) => {
+    mutationFn: async (teamData: { name: string; captainId?: string; members: string[] }) => {
       const response = await apiRequest("POST", "/api/teams", teamData);
       return await response.json();
     },
@@ -32,6 +41,7 @@ export default function TeamRegistrationModal({ isOpen, onClose }: TeamRegistrat
       queryClient.invalidateQueries({ queryKey: ["/api/teams"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
       setTeamName("");
+      setCaptainId("");
       setMembers([""]);
       onClose();
     },
@@ -95,6 +105,7 @@ export default function TeamRegistrationModal({ isOpen, onClose }: TeamRegistrat
 
     createTeamMutation.mutate({
       name: teamName.trim(),
+      captainId: captainId || undefined,
       members: validMembers.map(member => member.trim()),
     });
   };
@@ -102,6 +113,7 @@ export default function TeamRegistrationModal({ isOpen, onClose }: TeamRegistrat
   const handleClose = () => {
     if (createTeamMutation.isPending) return;
     setTeamName("");
+    setCaptainId("");
     setMembers([""]);
     onClose();
   };
@@ -130,6 +142,28 @@ export default function TeamRegistrationModal({ isOpen, onClose }: TeamRegistrat
               className="mt-2 bg-gaming-dark border-gaming-light text-white"
               disabled={createTeamMutation.isPending}
             />
+          </div>
+
+          <div>
+            <Label className="text-gray-300">
+              Team Captain (Optional)
+            </Label>
+            <Select value={captainId} onValueChange={setCaptainId} disabled={createTeamMutation.isPending}>
+              <SelectTrigger className="mt-2 bg-gaming-dark border-gaming-light text-white">
+                <SelectValue placeholder="Select a captain from registered users" />
+              </SelectTrigger>
+              <SelectContent className="conquest-card border-gaming-light">
+                <SelectItem value="">No captain selected</SelectItem>
+                {users?.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.firstName && user.lastName 
+                      ? `${user.firstName} ${user.lastName} (${user.email})`
+                      : user.email || `User ${user.id}`
+                    }
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <div>

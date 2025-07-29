@@ -116,3 +116,14 @@ The system uses PostgreSQL with the following main entities:
 - `build`: Production build of both frontend and backend
 - `start`: Production server startup
 - `db:push`: Database schema deployment
+
+## Recent Changes: Latest modifications with dates
+
+### January 2025 - Complete Gaming Platform
+- Enhanced team creation with captain selection from SQL database dropdown
+- Added comprehensive local deployment documentation (README.md, DEPLOYMENT.md)
+- Implemented complete admin panel with game session management
+- Added bulk website management for IIIT domains
+- Integrated WebSocket real-time updates for live leaderboard
+- Completed authentication system with Replit Auth integration
+- Built responsive gaming UI with dark theme and neon accents
