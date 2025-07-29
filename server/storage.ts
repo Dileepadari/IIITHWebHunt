@@ -6,6 +6,7 @@ import {
   gameSessions,
   type User,
   type UpsertUser,
+  type CreateUser,
   type Team,
   type InsertTeam,
   type Website,
@@ -19,9 +20,12 @@ import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations (mandatory for Replit Auth)
+  // User operations
   getUser(id: string): Promise<User | undefined>;
   getAllUsers(): Promise<User[]>;
+  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  createUser(user: CreateUser): Promise<User>;
   upsertUser(user: UpsertUser): Promise<User>;
   
   // Team operations
@@ -69,6 +73,21 @@ export class DatabaseStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return db.select().from(users).orderBy(users.firstName, users.lastName, users.email);
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
+  }
+
+  async createUser(userData: CreateUser): Promise<User> {
+    const [user] = await db.insert(users).values(userData).returning();
+    return user;
   }
 
   async upsertUser(userData: UpsertUser): Promise<User> {

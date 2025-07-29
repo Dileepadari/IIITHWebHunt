@@ -24,14 +24,17 @@ export const sessions = pgTable(
   (table) => [index("IDX_session_expire").on(table.expire)],
 );
 
-// User storage table for Replit Auth
+// User storage table for custom auth
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  username: varchar("username").unique().notNull(),
   email: varchar("email").unique(),
+  password: varchar("password"), // Optional for Google auth users
   firstName: varchar("first_name"),
   lastName: varchar("last_name"),
   profileImageUrl: varchar("profile_image_url"),
   isAdmin: boolean("is_admin").default(false),
+  isGoogleAuth: boolean("is_google_auth").default(false),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
 });
@@ -119,11 +122,20 @@ export const conquestsRelations = relations(conquests, ({ one }) => ({
 }));
 
 // Insert schemas
-export const insertUserSchema = createInsertSchema(users).pick({
+export const insertUserSchema = createInsertSchema(users).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const createUserSchema = createInsertSchema(users).pick({
+  username: true,
   email: true,
+  password: true,
   firstName: true,
   lastName: true,
   profileImageUrl: true,
+  isGoogleAuth: true,
 });
 
 export const insertTeamSchema = createInsertSchema(teams).omit({
@@ -156,6 +168,7 @@ export const insertGameSessionSchema = createInsertSchema(gameSessions).omit({
 // Types
 export type UpsertUser = typeof users.$inferInsert;
 export type User = typeof users.$inferSelect;
+export type CreateUser = z.infer<typeof createUserSchema>;
 export type InsertTeam = z.infer<typeof insertTeamSchema>;
 export type Team = typeof teams.$inferSelect;
 export type InsertWebsite = z.infer<typeof insertWebsiteSchema>;

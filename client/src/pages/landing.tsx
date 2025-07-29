@@ -21,7 +21,7 @@ export default function Landing() {
 
           <div className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-16">
             <Button
-              onClick={() => window.location.href = "/api/login"}
+              onClick={() => window.location.href = "/auth"}
               size="lg"
               className="bg-gradient-to-r from-electric-blue to-neon-green hover:opacity-90 text-white font-bold px-8 py-4 text-lg glow-effect"
             >
@@ -30,7 +30,7 @@ export default function Landing() {
             </Button>
             
             <Button
-              onClick={() => window.location.href = "/api/login"}
+              onClick={() => window.location.href = "/auth"}
               size="lg"
               variant="outline"
               className="border-2 border-neon-green text-neon-green hover:bg-neon-green hover:text-black font-bold px-8 py-4 text-lg"

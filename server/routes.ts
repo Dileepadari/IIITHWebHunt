@@ -2,29 +2,19 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth, isAuthenticated } from "./auth";
 import { insertTeamSchema, insertWebsiteSchema, insertConquestSchema, insertGameSessionSchema } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Auth middleware
-  await setupAuth(app);
+  setupAuth(app);
 
-  // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.claims.sub;
-      const user = await storage.getUser(userId);
-      res.json(user);
-    } catch (error) {
-      console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
-    }
-  });
+  // Note: Auth routes are now handled in auth.ts
 
   // User routes
   app.get('/api/users', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user?.isAdmin) {
@@ -52,7 +42,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/teams/my-team', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const team = await storage.getTeamByUserId(userId);
       res.json(team);
     } catch (error) {
@@ -63,7 +53,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/teams', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user?.isAdmin) {
@@ -109,7 +99,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/websites', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user?.isAdmin) {
@@ -127,7 +117,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/websites/bulk', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user?.isAdmin) {
@@ -150,7 +140,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Conquest routes
   app.post('/api/conquests', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const team = await storage.getTeamByUserId(userId);
       
       if (!team) {
@@ -250,7 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/game/start', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user?.isAdmin) {
@@ -277,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/game/pause', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user?.isAdmin) {
@@ -299,7 +289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/game/resume', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user?.isAdmin) {
@@ -321,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/game/end', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user?.isAdmin) {
@@ -344,7 +334,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin stats route
   app.get('/api/admin/stats', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user.id;
       const user = await storage.getUser(userId);
       
       if (!user?.isAdmin) {
