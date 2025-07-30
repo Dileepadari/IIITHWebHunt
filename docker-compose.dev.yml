@@ -7,19 +7,18 @@ services:
     container_name: websitehunt-db-dev
     restart: unless-stopped
     environment:
-      POSTGRES_DB: websitehunt_dev
-      POSTGRES_USER: websitehunt_dev
-      POSTGRES_PASSWORD: dev_password
-      POSTGRES_HOST_AUTH_METHOD: md5
+      POSTGRES_DB: websitehunt
+      POSTGRES_USER: websitehunt_user
+      POSTGRES_PASSWORD: strongpassword
     volumes:
-      - postgres_dev_data:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql/data
       - ./docker/postgres/init-dev.sql:/docker-entrypoint-initdb.d/init.sql:ro
     ports:
       - "5433:5432"
     networks:
       - websitehunt-dev-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U websitehunt_dev -d websitehunt_dev"]
+      test: ["CMD-SHELL", "pg_isready -U websitehunt_user -d websitehunt"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -52,7 +51,7 @@ services:
     environment:
       NODE_ENV: development
       PORT: 5000
-      DATABASE_URL: postgresql://websitehunt_dev:dev_password@database:5432/websitehunt_dev
+      DATABASE_URL: postgresql://websitehunt_user:strongpassword@database:5432/websitehunt
       REDIS_URL: redis://:dev_redis_password@redis:6379
       SESSION_SECRET: dev_session_secret_not_for_production
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
@@ -93,7 +92,7 @@ services:
       - pgadmin_dev_data:/var/lib/pgadmin
 
 volumes:
-  postgres_dev_data:
+  pgdata:
     driver: local
   redis_dev_data:
     driver: local

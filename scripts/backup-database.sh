@@ -24,8 +24,8 @@ if [ "$NODE_ENV" = "production" ]; then
     DB_USER="websitehunt_user"
 else
     DB_CONTAINER="websitehunt-db-dev"
-    DB_NAME="websitehunt_dev"
-    DB_USER="websitehunt_dev"
+    DB_NAME="websitehunt"
+    DB_USER="websitehunt_user"
 fi
 
 # Create backup

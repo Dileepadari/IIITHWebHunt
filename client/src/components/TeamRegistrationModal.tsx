@@ -153,7 +153,7 @@ export default function TeamRegistrationModal({ isOpen, onClose }: TeamRegistrat
                 <SelectValue placeholder="Select a captain from registered users" />
               </SelectTrigger>
               <SelectContent className="conquest-card border-gaming-light">
-                <SelectItem value="">No captain selected</SelectItem>
+                <SelectItem value="none">No captain selected</SelectItem>
                 {users?.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.firstName && user.lastName 

@@ -6,7 +6,6 @@ echo "🐳 Setting up Website Hunt Platform with Docker..."
 
 # Check if Docker and Docker Compose are installed
 command -v docker >/dev/null 2>&1 || { echo "❌ Docker is required but not installed. Please install Docker first."; exit 1; }
-command -v docker-compose >/dev/null 2>&1 || { echo "❌ Docker Compose is required but not installed. Please install Docker Compose first."; exit 1; }
 
 # Create necessary directories
 echo "📁 Creating required directories..."
@@ -27,10 +26,10 @@ chmod +x scripts/*.sh
 
 # Build and start development environment
 echo "🏗️  Building development environment..."
-docker-compose -f docker-compose.dev.yml build
+docker compose -f docker-compose.dev.yml build
 
 echo "🚀 Starting development services..."
-docker-compose -f docker-compose.dev.yml up -d
+docker compose -f docker-compose.dev.yml up -d
 
 echo ""
 echo "✅ Website Hunt Platform is starting up!"

@@ -3,30 +3,32 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
-import { insertTeamSchema, insertWebsiteSchema, insertConquestSchema, insertGameSessionSchema } from "@shared/schema";
+import {
+  insertTeamSchema,
+  insertWebsiteSchema,
+  insertConquestSchema,
+  insertGameSessionSchema,
+} from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health check endpoint
   app.get('/api/health', (req, res) => {
-    res.status(200).json({ 
-      status: 'ok', 
+    res.status(200).json({
+      status: 'ok',
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development'
     });
   });
 
-  // Auth middleware
   setupAuth(app);
-
-  // Note: Auth routes are now handled in auth.ts
 
   // User routes
   app.get('/api/users', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const user = await storage.getUser(userId);
-      
+
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -65,20 +67,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const user = await storage.getUser(userId);
-      
+
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
 
       const validatedData = insertTeamSchema.parse(req.body);
       const team = await storage.createTeam(validatedData);
-      
-      // Broadcast team creation
+
       broadcastToAll({
         type: 'TEAM_CREATED',
         data: team
       });
-      
+
       res.json(team);
     } catch (error) {
       console.error("Error creating team:", error);
@@ -111,7 +112,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const user = await storage.getUser(userId);
-      
+
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -129,7 +130,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const user = await storage.getUser(userId);
-      
+
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -152,7 +153,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const team = await storage.getTeamByUserId(userId);
-      
+
       if (!team) {
         return res.status(400).json({ message: "You must be part of a team to make conquest attempts" });
       }
@@ -162,23 +163,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "URL is required" });
       }
 
-      // Check if URL is a valid IIIT website
       const website = await storage.getWebsiteByUrl(url);
-      let points = -25; // Default penalty for wrong guess
+      let points = -25;
       let isSuccessful = false;
       let websiteId = null;
 
       if (website && !website.isConquered) {
-        // Successful conquest
         points = website.points || 100;
         isSuccessful = true;
         websiteId = website.id;
-        
-        // Mark website as conquered
         await storage.conquerWebsite(website.id, team.id);
       }
 
-      // Record the conquest attempt
       const conquest = await storage.createConquest({
         teamId: team.id,
         websiteId,
@@ -187,19 +183,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         points,
       });
 
-      // Update team score
       await storage.updateTeamScore(team.id, points);
 
-      // Broadcast conquest result
       const updatedTeams = await storage.getTeams();
       broadcastToAll({
         type: 'CONQUEST_RESULT',
         data: {
-          conquest: {
-            ...conquest,
-            team,
-            website,
-          },
+          conquest: { ...conquest, team, website },
           leaderboard: updatedTeams,
         }
       });
@@ -215,9 +205,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { userId } = req.params;
       const team = await storage.getTeamByUserId(userId);
-      if (!team) {
-        return res.json([]);
-      }
+      if (!team) return res.json([]);
       const conquests = await storage.getConquestsByTeam(team.id);
       res.json(conquests);
     } catch (error) {
@@ -252,7 +240,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const user = await storage.getUser(userId);
-      
+
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -260,7 +248,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const session = await storage.createGameSession({
         status: 'active',
         startTime: new Date(),
-        duration: req.body.duration || 180, // Default 3 hours
+        duration: req.body.duration || 180,
       });
 
       broadcastToAll({
@@ -279,7 +267,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const user = await storage.getUser(userId);
-      
+
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -301,7 +289,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const user = await storage.getUser(userId);
-      
+
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -323,7 +311,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const userId = req.user.id;
       const user = await storage.getUser(userId);
-      
+
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -341,12 +329,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin stats route
   app.get('/api/admin/stats', isAuthenticated, async (req: any, res) => {
     try {
       const userId = req.user.id;
       const user = await storage.getUser(userId);
-      
+
       if (!user?.isAdmin) {
         return res.status(403).json({ message: "Admin access required" });
       }
@@ -359,29 +346,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Create HTTP server manually
   const httpServer = createServer(app);
 
-  // WebSocket server for real-time updates
-  const wss = new WebSocketServer({ server: httpServer, path: '/ws' });
-  
-  wss.on('connection', (ws: WebSocket) => {
-    console.log('New WebSocket connection');
-    
-    ws.on('message', (message: string) => {
+  // WebSocket server for real-time updates (noServer mode)
+  const wss = new WebSocketServer({ noServer: true });
+
+  wss.on("connection", (ws: WebSocket) => {
+    console.log("New WebSocket connection");
+
+    ws.on("message", (message: string) => {
       try {
         const data = JSON.parse(message);
-        console.log('Received WebSocket message:', data);
+        console.log("Received WebSocket message:", data);
       } catch (error) {
-        console.error('Invalid WebSocket message:', error);
+        console.error("Invalid WebSocket message:", error);
       }
     });
-    
-    ws.on('close', () => {
-      console.log('WebSocket connection closed');
+
+    ws.on("close", () => {
+      console.log("WebSocket connection closed");
     });
   });
 
-  // Broadcast function for real-time updates
+  // Forward upgrade requests to the correct WebSocket server
+  httpServer.on("upgrade", (request, socket, head) => {
+    const { url } = request;
+
+    if (url?.startsWith("/ws")) {
+      wss.handleUpgrade(request, socket, head, (ws) => {
+        wss.emit("connection", ws, request);
+      });
+    }
+
+    // If not /ws, let Vite (or other handlers) handle the upgrade
+  });
+
+  // Make broadcast available globally
   function broadcastToAll(data: any) {
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) {
@@ -390,7 +391,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   }
 
-  // Make broadcastToAll available globally (for development)
   (global as any).broadcastToAll = broadcastToAll;
 
   return httpServer;

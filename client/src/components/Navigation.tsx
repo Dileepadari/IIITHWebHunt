@@ -3,7 +3,6 @@ import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { User } from "@shared/schema";
 
-
 export default function Navigation() {
   const { user, isLoading, logoutMutation } = useAuth();
   const [location] = useLocation();
@@ -63,43 +62,46 @@ export default function Navigation() {
       <nav className="bg-gaming-dark border-b border-gaming-light sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo */}
-            <Link href="/">
-              <a className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-gradient-to-br from-electric-blue to-neon-green rounded-lg flex items-center justify-center">
-                  <i className="fas fa-search text-white text-lg"></i>
-                </div>
-                <div>
-                  <h1 className="font-orbitron font-black text-xl text-white">WEBSITE HUNT</h1>
-                  <p className="text-xs text-gray-400 -mt-1">IIIT Championship</p>
-                </div>
-              </a>
+            {/* Logo - FIXED: Removed nested <a> tag */}
+            <Link 
+              to="/" 
+              className="flex items-center space-x-3"
+            >
+              <div className="w-10 h-10 bg-gradient-to-br from-electric-blue to-neon-green rounded-lg flex items-center justify-center">
+                <i className="fas fa-search text-white text-lg"></i>
+              </div>
+              <div>
+                <h1 className="font-orbitron font-black text-xl text-white">WEBSITE HUNT</h1>
+                <p className="text-xs text-gray-400 -mt-1">IIIT Championship</p>
+              </div>
             </Link>
 
-            {/* Navigation Links */}
+            {/* Navigation Links - FIXED: Removed nested <a> tags */}
             {user && (
               <div className="hidden md:flex items-center space-x-8">
-                <Link href="/">
-                  <a className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all ${
-                    location === "/" 
+                <Link 
+                  to="/home"
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all ${
+                    location === "/home" 
                       ? "bg-electric-blue bg-opacity-20 text-electric-blue border border-electric-blue border-opacity-30" 
                       : "text-gray-300 hover:text-electric-blue hover:bg-gaming-gray"
-                  }`}>
-                    <i className="fas fa-home"></i>
-                    <span>Game Dashboard</span>
-                  </a>
+                  }`}
+                >
+                  <i className="fas fa-home"></i>
+                  <span>Game Dashboard</span>
                 </Link>
                 
                 {user.isAdmin && (
-                  <Link href="/admin">
-                    <a className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all ${
+                  <Link 
+                    to="/admin"
+                    className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all ${
                       location === "/admin" 
                         ? "bg-neon-green bg-opacity-20 text-neon-green border border-neon-green border-opacity-30" 
                         : "text-gray-300 hover:text-neon-green hover:bg-gaming-gray"
-                    }`}>
-                      <i className="fas fa-cog"></i>
-                      <span>Admin Panel</span>
-                    </a>
+                    }`}
+                  >
+                    <i className="fas fa-cog"></i>
+                    <span>Admin Panel</span>
                   </Link>
                 )}
                 

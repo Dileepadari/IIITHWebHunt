@@ -7,23 +7,11 @@ import { User } from "@shared/schema";
 
 export default function Admin() {
   const { toast } = useToast();
-  const { user, isAuthenticated, isLoading } = useAuth();
+  const { user, isLoading } = useAuth();
 
   // Redirect to home if not authenticated
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      toast({
-        title: "Unauthorized",
-        description: "You are logged out. Logging in again...",
-        variant: "destructive",
-      });
-      setTimeout(() => {
-        window.location.href = "/api/login";
-      }, 500);
-      return;
-    }
-    
-    if (!isLoading && isAuthenticated && !(user as User)?.isAdmin) {
+  useEffect(() => {    
+    if (!isLoading && !(user as User)?.isAdmin) {
       toast({
         title: "Access Denied",
         description: "Admin access required for this page.",
@@ -34,7 +22,7 @@ export default function Admin() {
       }, 1000);
       return;
     }
-  }, [isAuthenticated, isLoading, user, toast]);
+  }, [isLoading, user, toast]);
 
   if (isLoading) {
     return (
@@ -47,7 +35,7 @@ export default function Admin() {
     );
   }
 
-  if (!isAuthenticated || !(user as User)?.isAdmin) {
+  if (!(user as User)?.isAdmin) {
     return null; // Redirect handling is in useEffect
   }
 

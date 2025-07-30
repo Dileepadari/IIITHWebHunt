@@ -28,7 +28,7 @@ This document provides comprehensive instructions for running the Website Hunt p
 3. **Access the application:**
    - Application: http://localhost:5000
    - pgAdmin: http://localhost:8080
-   - Database: postgresql://localhost:5433/websitehunt_dev
+   - Database: postgresql://localhost:5433/websitehunt
 
 ### Production Environment
 
@@ -137,7 +137,7 @@ docker-compose --profile monitoring up -d
 **Connect to database:**
 ```bash
 # Development
-docker exec -it websitehunt-db-dev psql -U websitehunt_dev -d websitehunt_dev
+docker exec -it websitehunt-db-dev psql -U websitehunt_user -d websitehunt
 
 # Production
 docker exec -it websitehunt-db psql -U websitehunt_user -d websitehunt

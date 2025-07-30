@@ -9,23 +9,31 @@ import Landing from "@/pages/landing";
 import Home from "@/pages/home";
 import Admin from "@/pages/admin";
 import AuthPage from "@/pages/auth";
+import { Redirect } from "wouter";
 
 function Router() {
   const { user, isLoading } = useAuth();
 
+  if (isLoading) return null; // Or return a loading spinner
+
   return (
     <Switch>
-      {isLoading || !user ? (
-        <>
-          <Route path="/" component={Landing} />
-          <Route path="/auth" component={AuthPage} />
-        </>
-      ) : (
-        <>
-          <Route path="/" component={Home} />
-          <Route path="/admin" component={Admin} />
-        </>
-      )}
+      {/* Public routes */}
+      <Route path="/">
+        {user ? <Redirect to="/home" /> : <Landing />}
+      </Route>
+      <Route path="/auth">
+        {user ? <Redirect to="/home" /> : <AuthPage />}
+      </Route>
+
+      {/* Protected routes */}
+      <Route path="/home">
+        {user ? <Home /> : <Redirect to="/auth" />}
+      </Route>
+      <Route path="/admin">
+        {user ? <Admin /> : <Redirect to="/auth" />}
+      </Route>
+
       <Route component={NotFound} />
     </Switch>
   );

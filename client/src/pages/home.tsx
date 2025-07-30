@@ -8,6 +8,8 @@ import ConquestHistory from "@/components/ConquestHistory";
 export default function Home() {
   const { isAuthenticated, isLoading } = useAuth();
 
+  console.log("Home page auth state:", { isAuthenticated, isLoading });
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
@@ -20,17 +22,23 @@ export default function Home() {
   }
 
   if (!isAuthenticated) {
-    return null; // This should not happen as routing handles it, but just in case
+    return (
+      <div className="min-h-screen bg-gaming-dark flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-red-500 font-orbitron text-lg">Authentication failed or expired. Please login again.</p>
+        </div>
+      </div>
+    );
   }
 
   return (
     <div className="min-h-screen bg-gaming-dark">
       <Navigation />
-      
+
       {/* Main Content */}
       <main className="pt-32">
         <GameHero />
-        
+
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <TeamDashboard />
           <LiveLeaderboard />
