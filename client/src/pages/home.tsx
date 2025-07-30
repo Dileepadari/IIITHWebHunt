@@ -36,7 +36,7 @@ export default function Home() {
       <Navigation />
 
       {/* Main Content */}
-      <main className="pt-32">
+      <main className="pt-2">
         <GameHero />
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

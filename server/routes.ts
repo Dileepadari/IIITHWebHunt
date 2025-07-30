@@ -175,6 +175,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.conquerWebsite(website.id, team.id);
       }
 
+      if(website && website.isConquered){
+        points = 0;
+      }
+
       const conquest = await storage.createConquest({
         teamId: team.id,
         websiteId,
@@ -334,9 +338,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.id;
       const user = await storage.getUser(userId);
 
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
+      // if (!user?.isAdmin) {
+      //   return res.status(403).json({ message: "Admin access required" });
+      // }
 
       const stats = await storage.getGameStats();
       res.json(stats);

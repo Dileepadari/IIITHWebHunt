@@ -113,7 +113,7 @@ export default function ConquestHistory() {
                       </span>
                     </div>
                     <p className="text-xs text-gray-400 truncate">
-                      {new Date(conquest.createdAt).toLocaleTimeString()}
+                      {new Date(conquest.attemptedAt).toLocaleTimeString()}
                     </p>
                   </div>
                 </div>
@@ -165,7 +165,7 @@ export default function ConquestHistory() {
                       </span>
                     </div>
                     <p className="text-xs text-gray-400">
-                      {new Date(conquest.createdAt).toLocaleTimeString()}
+                      {new Date(conquest.attemptedAt).toLocaleTimeString()}
                     </p>
                   </div>
                 </div>

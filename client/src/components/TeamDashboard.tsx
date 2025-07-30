@@ -37,7 +37,7 @@ export default function TeamDashboard() {
       } else {
         toast({
           title: "Conquest Failed",
-          description: `Wrong guess. You lost ${Math.abs(data.points)} points.`,
+          description: (Math.abs(data.points) == 0 ? `The website is Already Conquered.` : `Wrong Guess.`) + ` You lost ${Math.abs(data.points)} points.`,
           variant: "destructive",
         });
       }

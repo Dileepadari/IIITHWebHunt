@@ -44,7 +44,7 @@ export default function GameHero() {
     <section className="bg-gradient-to-br from-gaming-dark via-gaming-gray to-gaming-dark py-16 mt-26">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
-          <h1 className="font-orbitron font-black text-5xl md:text-7xl mb-4 bg-gradient-to-r from-electric-blue to-neon-green bg-clip-text text-transparent">
+          <h1 className="font-orbitron text-white text-5xl md:text-7xl mb-4 bg-gradient-to-r from-electric-blue to-neon-green bg-clip-text">
             WEBSITE HUNT
           </h1>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">

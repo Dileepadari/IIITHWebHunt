@@ -70,7 +70,7 @@ export default function LiveLeaderboard() {
               return (
                 <div 
                   key={team.id}
-                  className={`flex items-center justify-between p-4 rounded-lg transition-all hover:scale-105 ${
+                  className={`flex items-center justify-between p-4 rounded-lg transition-all hover:scale-101 ${
                     index === 0 
                       ? "bg-gradient-to-r from-yellow-400/10 to-yellow-600/10 border border-yellow-400/30 glow-effect" 
                       : index === 1 
