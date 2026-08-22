@@ -156,10 +156,14 @@ SESSION_SECRET="your-super-secret-session-key-change-this-in-production"
 # Development Configuration
 NODE_ENV="development"
 
-# Replit Auth Configuration (for local development, these can be placeholder)
-REPL_ID="local-development"
-ISSUER_URL="https://replit.com/oidc"
-REPLIT_DOMAINS="localhost:5000"
+# Seeding: required once, to create the admin account
+SEED_DATABASE="true"
+ADMIN_USERNAME="admin"
+ADMIN_EMAIL="admin@iiit.ac.in"
+ADMIN_PASSWORD="choose-a-strong-password"
+
+# Scoring: only enable on the campus network, where intranet hosts resolve
+PENALISE_UNVERIFIED_IIIT="false"
 ```
 
 ### 5. Database Schema Setup
@@ -170,7 +174,7 @@ REPLIT_DOMAINS="localhost:5000"
 npm run db:push
 
 # Expected output:
-# > rest-express@1.0.0 db:push
+# > iiith-website-hunt@1.0.0 db:push
 # > drizzle-kit push
 # 
 # [✓] Pulling schema from database...
@@ -180,7 +184,7 @@ npm run db:push
 #### Verify Database Setup
 ```bash
 # Open database studio (optional)
-npm run db:studio
+npx drizzle-kit studio
 
 # Or verify with direct SQL
 psql -U hunt_admin -d website_hunt -c "\dt"
@@ -189,44 +193,26 @@ psql -U hunt_admin -d website_hunt -c "\dt"
 ### 6. Initial Data Setup
 
 #### Create Admin User (Required)
-Since authentication is handled by Replit, for local development you'll need to:
 
-1. **Start the application first**:
-   ```bash
-   npm run dev
-   ```
+Admin is the only way into the control panel, and no endpoint grants it. The seed script
+is the supported way to create the first one:
 
-2. **Access the app** at `http://localhost:5000`
+```bash
+export ADMIN_USERNAME=admin
+export ADMIN_EMAIL=admin@iiit.ac.in
+export ADMIN_PASSWORD='choose-a-strong-password'   # at least 8 characters
 
-3. **Login with Replit** (or skip auth for local dev by modifying the code)
+npm run db:seed
+```
 
-4. **Set admin privileges** in database:
-   ```sql
-   -- Connect to database
-   psql -U hunt_admin -d website_hunt
-   
-   -- Find your user ID (after first login)
-   SELECT id, email, "firstName", "lastName", "isAdmin" FROM users;
-   
-   -- Set admin privileges
-   UPDATE users SET "isAdmin" = true WHERE email = 'your-email@example.com';
-   
-   -- Verify
-   SELECT id, email, "isAdmin" FROM users WHERE "isAdmin" = true;
-   ```
+The script is idempotent: run again and it promotes the existing user rather than
+creating a duplicate. It refuses to run without `ADMIN_PASSWORD` rather than inventing a
+default. It also seeds a starter list of websites, overridable with `SEED_WEBSITES`.
 
-#### Add Sample Data (Optional)
+To promote someone who already registered through the app:
+
 ```sql
--- Add sample websites for testing
-INSERT INTO websites (url, domain, points) VALUES 
-('https://www.iiit.ac.in', 'www.iiit.ac.in', 100),
-('https://students.iiit.ac.in', 'students.iiit.ac.in', 100),
-('https://academics.iiit.ac.in', 'academics.iiit.ac.in', 100),
-('https://research.iiit.ac.in', 'research.iiit.ac.in', 100);
-
--- Add sample team
-INSERT INTO teams (name, members, score) VALUES 
-('Sample Team', ARRAY['Alice', 'Bob', 'Charlie'], 0);
+UPDATE users SET is_admin = true WHERE username = 'their-username';
 ```
 
 ### 7. Start Development Server
@@ -327,13 +313,13 @@ npm run dev
 # 3. Make changes to code
 # 4. Test in browser
 # 5. Check database with:
-npm run db:studio
+npx drizzle-kit studio
 ```
 
 #### Database Management
 ```bash
 # View current schema
-npm run db:studio
+npx drizzle-kit studio
 
 # Reset database (careful!)
 psql -U hunt_admin -d website_hunt -c "DROP SCHEMA public CASCADE; CREATE SCHEMA public;"
@@ -352,7 +338,7 @@ psql -U hunt_admin -h localhost website_hunt < backup.sql
 2. **Use environment-specific secrets** for SESSION_SECRET
 3. **Configure proper PostgreSQL user permissions**
 4. **Set up SSL/TLS** for database connections
-5. **Use proper Replit Auth configuration** with real domain
+5. **Set a strong `SESSION_SECRET`** (the server refuses to start in production without one)
 6. **Implement rate limiting** and other security measures
 
 ## Getting Help

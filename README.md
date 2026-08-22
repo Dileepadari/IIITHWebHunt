@@ -1,234 +1,101 @@
-# Website Hunt Game - IIIT Hyderabad
+<p align="center">
+  <img src="./client/src/assets/logo-mark.png" width="96" alt="ADK DEV">
+</p>
 
-A competitive web-based gaming platform where IIIT Hyderabad teams compete to discover and "conquer" IIIT websites to earn points and climb the leaderboard.
+# Website Hunt
+
+A team competition for IIIT Hyderabad: teams race to find and claim websites across the
+campus's domains, scoring points for every site they are first to reach.
+
+An admin seeds a list of target sites and runs the clock. Teams submit URLs; the first
+team to submit a given site claims it. Because nobody can list every site on campus, a
+submission for a site that is not on the list is checked live, and counts if it is real.
+
+For architecture, data model, and setup, see **[DEVDOC.md](./DEVDOC.md)**.
 
 ## Features
 
-- **Real-time Multiplayer Gaming**: WebSocket-powered live updates for instant leaderboard changes
-- **Team Management**: Create teams with custom sizes and captain selection from registered users
-- **Conquest System**: +100 points for correct IIIT website discoveries, -25 for incorrect attempts
-- **Admin Panel**: Comprehensive game management including team creation, website management, and game session control
-- **External Authentication**: Secure login system using Replit Auth
-- **Live Leaderboard**: Real-time scoring with team rankings and conquest statistics
-- **Modern Gaming UI**: Dark theme with neon accents and responsive design
+### Submitting a site
+- Type a URL in any shape. `  HTTPS://Students.IIIT.ac.in/  `, `students.iiit.ac.in`
+  and `www.students.iiit.ac.in/#about` are all the same target: leading and trailing
+  spaces, spaces *inside* the address, capitals, `http`/`https`, a `www.` prefix, a
+  trailing slash, a port, a query string and a fragment are all ignored before matching.
+- The form shows the canonical form it will submit, before you submit it.
+- Deep links count. If the admin listed `cvit.iiit.ac.in` and you submit
+  `cvit.iiit.ac.in/projects/2024`, you have still found the site.
 
-## Technology Stack
+### Sites nobody listed
+- A guess for an `iiit.ac.in` site that is not on the list is verified live. If it
+  answers, it joins the hunt and scores full points, and is flagged in the admin panel
+  as player-discovered.
+- This is the point of the game: the list is a starting set, not the whole map.
 
-### Frontend
-- **React 18** with TypeScript
-- **Vite** for fast development and building
-- **Tailwind CSS** with custom gaming theme
-- **Radix UI** components for accessibility
-- **TanStack Query** for server state management
-- **WebSocket client** for real-time updates
+### Scoring
+| Outcome | Points | When |
+|---|---|---|
+| Conquered | + the site's value (default 100) | You were first to a real, unclaimed site |
+| Already done | 0 | Your team already claimed it - no penalty for resubmitting |
+| Already taken | 0 | Another team got there first. You are told **which team** |
+| Already tried | 0 | You already guessed this exact URL and it was wrong. Never charged twice |
+| Could not verify | 0 | We could not reach it. Costs nothing either way |
+| Wrong | -25 | Provably wrong: not an `iiit.ac.in` domain |
 
-### Backend
-- **Express.js** with TypeScript
-- **PostgreSQL** database with Neon serverless
-- **Drizzle ORM** for type-safe database operations
-- **WebSocket server** for real-time communication
-- **Replit Auth** for OAuth authentication
+The rule behind the table: points are only deducted for a guess that can be *proven*
+wrong. Anything uncertain scores zero rather than risking a penalty for a correct answer.
 
-## Local Development Setup
+### Anti-spam
+- One submission per team every 2 seconds, enforced on the server. The submit button
+  shows the remaining wait, so a double-click or a held Enter key cannot drain a score.
+- Resubmitting anything already settled is always free.
 
-### Prerequisites
+### Live updates
+- Leaderboard, recent activity and stats update over a websocket as other teams play.
+- The countdown ticks in real time and the game ends by itself when the clock runs out.
 
-- Node.js 20+ installed
-- PostgreSQL database (local or cloud)
-- Git
+## Roles
 
-### 1. Clone and Install
+| Role | Can do |
+|---|---|
+| **Player** | Join a team, submit URLs, see the leaderboard and their team's history |
+| **Admin** | Everything a player can, plus: create teams, add sites in bulk, start / pause / resume / end the game, and see game stats |
+
+## The game lifecycle
+
+```
+no game  ->  active  ->  paused  ->  active  ->  ended
+                 |                                 ^
+                 +---------- clock runs out -------+
+```
+
+Submissions are only accepted while a game is `active`. Starting a new game
+automatically ends any previous one, so only one hunt runs at a time.
+
+## A typical run
+
+1. Admin signs in and adds target sites, one URL per line, in **Websites**.
+2. Admin creates teams in **Teams**, picking members from registered users.
+3. Admin sets a duration and presses **Start New Game**.
+4. Players sign in, find their team dashboard, and start submitting.
+5. The game ends when the admin ends it or the clock expires. The leaderboard is final.
+
+## Tech stack
+
+React 19 + Vite 8 + Tailwind on the client, Express 5 + Drizzle ORM + PostgreSQL on the
+server, with a websocket for live updates. TypeScript throughout, sharing the URL
+normalization rules between client and server so both judge a URL identically.
+
+## Getting started
 
 ```bash
-git clone <repository-url>
-cd website-hunt-game
-npm install
+cp .env.example .env      # fill in DATABASE_URL, SESSION_SECRET and ADMIN_PASSWORD
+docker compose up -d
 ```
 
-### 2. Environment Setup
+First boot needs `SEED_DATABASE=true` and an `ADMIN_PASSWORD` in `.env` to create the
+admin account, which is the only way into the admin panel.
 
-Create a `.env` file in the root directory:
-
-```env
-# Database Configuration
-DATABASE_URL="postgresql://username:password@localhost:5432/website_hunt"
-PGHOST="localhost"
-PGPORT="5432"
-PGUSER="your_username"
-PGPASSWORD="your_password"
-PGDATABASE="website_hunt"
-
-# Session Configuration
-SESSION_SECRET="your-super-secret-session-key-here"
-
-# Replit Auth Configuration (for production)
-REPL_ID="your-repl-id"
-ISSUER_URL="https://replit.com/oidc"
-REPLIT_DOMAINS="your-domain.replit.app"
-```
-
-### 3. Database Setup
-
-```bash
-# Push database schema
-npm run db:push
-
-# Verify database connection
-npm run db:studio  # Opens Drizzle Studio for database inspection
-```
-
-### 4. Initial Admin Setup
-
-After starting the application, you'll need to set up an admin user:
-
-1. Start the application: `npm run dev`
-2. Navigate to the app and log in with Replit Auth
-3. Manually update your user record in the database to set `is_admin = true`
-
-```sql
--- Connect to your database and run:
-UPDATE users SET is_admin = true WHERE email = 'your-email@example.com';
-```
-
-### 5. Start Development
-
-```bash
-npm run dev
-```
-
-The application will be available at `http://localhost:5000`
-
-## Production Deployment
-
-### Using Replit
-
-1. **Import Project**: Import this repository to Replit
-2. **Database Setup**: Provision a PostgreSQL database through Replit
-3. **Environment Variables**: Set up the required environment variables in Replit Secrets
-4. **Deploy**: Use Replit's deploy feature
-
-### Manual Deployment
-
-1. **Build the Application**:
-   ```bash
-   npm run build
-   ```
-
-2. **Set Environment Variables**: Configure all required environment variables on your hosting platform
-
-3. **Database Migration**: Run database schema push on production:
-   ```bash
-   npm run db:push
-   ```
-
-4. **Start Production Server**:
-   ```bash
-   npm start
-   ```
-
-## Game Administration
-
-### Setting Up a Game
-
-1. **Login as Admin**: Use Replit Auth to login with an admin account
-2. **Add Websites**: Navigate to Admin Panel > Websites tab and bulk add IIIT website URLs
-3. **Create Teams**: Use Admin Panel > Teams tab to create teams with members and captains
-4. **Start Game**: Go to Admin Panel > Game Control and start a new game session
-
-### Managing Teams
-
-- Teams can have custom sizes (flexible member count)
-- Captains can be selected from registered users via dropdown
-- Members are added as text entries during team creation
-- Teams automatically appear on the leaderboard once created
-
-### Scoring System
-
-- **Correct Website Discovery**: +100 points
-- **Incorrect Attempt**: -25 points
-- **Real-time Updates**: All score changes broadcast via WebSocket
-
-## API Endpoints
-
-### Authentication
-- `GET /api/auth/user` - Get current user
-- `GET /api/login` - Start login flow
-- `GET /api/logout` - Logout user
-
-### Teams
-- `GET /api/teams` - Get all teams (leaderboard)
-- `GET /api/teams/my-team` - Get current user's team
-- `POST /api/teams` - Create new team (admin only)
-
-### Websites
-- `GET /api/websites` - Get all websites
-- `GET /api/websites/available` - Get unconquered websites
-- `POST /api/websites/bulk` - Bulk add websites (admin only)
-
-### Game Management
-- `GET /api/game/current` - Get current game session
-- `POST /api/game/start` - Start new game (admin only)
-- `POST /api/game/pause` - Pause current game (admin only)
-- `POST /api/game/resume` - Resume paused game (admin only)
-- `POST /api/game/end` - End current game (admin only)
-
-### Conquests
-- `POST /api/conquests` - Submit website conquest attempt
-- `GET /api/conquests/recent` - Get recent conquest attempts
-- `GET /api/conquests/team/:userId` - Get user's team conquests
-
-## Database Schema
-
-### Core Tables
-
-- **users**: User profiles with admin flags
-- **teams**: Team information with scoring metrics
-- **websites**: IIIT websites available for conquest
-- **conquests**: Records of team attempts (successful/failed)
-- **gameSessions**: Game timing and duration management
-- **sessions**: Authentication session storage
-
-### Relationships
-
-- Teams have captains (users) and track conquest statistics
-- Websites can be conquered by teams
-- Conquests link teams to websites with attempt results
-- Game sessions control overall game state
-
-## Troubleshooting
-
-### Common Issues
-
-1. **Database Connection Issues**
-   - Verify DATABASE_URL is correct
-   - Ensure PostgreSQL is running
-   - Check firewall settings
-
-2. **Authentication Problems**
-   - Verify Replit Auth configuration
-   - Check REPL_ID and domain settings
-   - Ensure SESSION_SECRET is set
-
-3. **WebSocket Connection Issues**
-   - Check if port 5000 is available
-   - Verify WebSocket path is `/ws`
-   - Check browser console for connection errors
-
-### Development Tips
-
-- Use `npm run db:studio` to inspect database contents
-- Check browser console for client-side errors
-- Monitor server logs for API request issues
-- Use browser network tab to debug API calls
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+Running without Docker is covered in [DEVDOC.md](./DEVDOC.md).
 
 ## License
 
-This project is licensed under the MIT License.
+MIT

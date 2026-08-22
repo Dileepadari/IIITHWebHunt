@@ -5,7 +5,9 @@ import { Team } from "@shared/schema";
 export default function LiveLeaderboard() {
   const { data: teams, isLoading } = useQuery<Team[]>({
     queryKey: ["/api/teams"],
-    refetchInterval: 5000, // Refresh every 5 seconds
+    // Backstop only: the websocket pushes these updates as they happen.
+    // Polling exists to recover from a missed event, not to drive the UI.
+    refetchInterval: 60000,
   });
 
   // Use WebSocket for real-time updates

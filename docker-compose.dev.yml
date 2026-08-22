@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # PostgreSQL Database for Development
   database:
@@ -23,24 +21,6 @@ services:
       timeout: 10s
       retries: 5
 
-  # Redis for Development
-  redis:
-    image: redis:7-alpine
-    container_name: websitehunt-redis-dev
-    restart: unless-stopped
-    command: redis-server --requirepass dev_redis_password
-    volumes:
-      - redis_dev_data:/data
-    ports:
-      - "6380:6379"
-    networks:
-      - websitehunt-dev-network
-    healthcheck:
-      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
   # Website Hunt Development App with Hot Reload
   app-dev:
     build: 
@@ -52,17 +32,22 @@ services:
       NODE_ENV: development
       PORT: 5000
       DATABASE_URL: postgresql://websitehunt_user:strongpassword@database:5432/websitehunt
-      REDIS_URL: redis://:dev_redis_password@redis:6379
-      SESSION_SECRET: dev_session_secret_not_for_production
+      SESSION_SECRET: ${SESSION_SECRET:-dev_session_secret_not_for_production}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      # No default admin password, matching docker-compose.yml. A known
+      # credential baked into a compose file is a real weakness even in dev, so
+      # seeding is opt-in here too: set ADMIN_PASSWORD and SEED_DATABASE=true in
+      # .env for the first boot.
+      SEED_DATABASE: ${SEED_DATABASE:-false}
+      ADMIN_USERNAME: ${ADMIN_USERNAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@iiit.ac.in}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
     ports:
+      # One port: Vite runs as Express middleware, not a separate dev server.
       - "5000:5000"
-      - "5173:5173"  # Vite dev server
     depends_on:
       database:
-        condition: service_healthy
-      redis:
         condition: service_healthy
     networks:
       - websitehunt-dev-network
@@ -93,8 +78,6 @@ services:
 
 volumes:
   pgdata:
-    driver: local
-  redis_dev_data:
     driver: local
   pgadmin_dev_data:
     driver: local

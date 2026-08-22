@@ -1,6 +1,40 @@
-node_modules
-dist
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-ssr/
+build/
+server/public/
+.vite/
+
+# Environment and secrets - never commit these
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+yarn-error.log*
+logs/
+
+# OS and editor cruft
 .DS_Store
-server/public
-vite.config.ts.*
+Thumbs.db
+*.swp
+*.swo
+*~
+.idea/
+
+# Merge and patch leftovers
+*.orig
+*.rej
+*.bak
+
+# Archives and local database dumps
 *.tar.gz
+backups/
+
+# Local tooling
+vite.config.ts.*

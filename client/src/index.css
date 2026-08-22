@@ -1,5 +1,4 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
 @import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
 
 @tailwind base;
@@ -8,14 +7,20 @@
 
 @layer base {
   :root {
-    /* Gaming Theme Colors */
-    --gaming-dark: #0a0a0a;
-    --gaming-darker: #050505;
-    --gaming-gray: #1a1a1a;
-    --gaming-light: #333333;
-    --electric-blue: #00d4ff;
-    --neon-green: #39ff14;
-    --electric-purple: #9d4edd;
+    /* Gaming theme palette.
+       Stored as space-separated RGB channels, not hex, so Tailwind can compose
+       them with an alpha value: "rgb(var(--neon-green) / <alpha-value>)". While
+       these were hex, every opacity modifier in the app (bg-neon-green/10,
+       bg-opacity-20, border-neon-green/30) silently did nothing - which is what
+       made the admin nav render as solid green blocks with invisible text. */
+    --gaming-dark: 12 17 29;
+    --gaming-darker: 4 6 11;
+    --gaming-gray: 29 41 57;
+    --gaming-light: 44 58 78;
+    --electric-blue: 0 200 255;
+    --neon-green: 0 255 106;
+    --electric-purple: 118 101 231;
+    --danger-red: 241 70 104;
     
     /* Shadcn UI Variables */
     --background: #0a0a0a;
@@ -45,57 +50,18 @@
     font-family: 'Orbitron', monospace;
   }
   
-  .bg-gaming-dark {
-    background-color: var(--gaming-dark);
-  }
   
-  .bg-gaming-darker {
-    background-color: var(--gaming-darker);
-  }
   
-  .bg-gaming-gray {
-    background-color: var(--gaming-gray);
-  }
   
-  .border-gaming-light {
-    border-color: var(--gaming-light);
-  }
   
-  .text-electric-blue {
-    color: var(--electric-blue);
-  }
   
-  .bg-electric-blue {
-    background-color: var(--electric-blue);
-  }
   
-  .border-electric-blue {
-    border-color: var(--electric-blue);
-  }
   
-  .text-neon-green {
-    color: var(--neon-green);
-  }
   
-  .bg-neon-green {
-    background-color: var(--neon-green);
-  }
   
-  .border-neon-green {
-    border-color: var(--neon-green);
-  }
   
-  .text-electric-purple {
-    color: var(--electric-purple);
-  }
   
-  .bg-electric-purple {
-    background-color: var(--electric-purple);
-  }
   
-  .border-electric-purple {
-    border-color: var(--electric-purple);
-  }
   
   .conquest-card {
     background: linear-gradient(135deg, #1a1a1a 0%, #2a2a2a 100%);
@@ -104,7 +70,7 @@
   }
   
   .team-badge {
-    background: linear-gradient(135deg, var(--electric-blue) 0%, var(--neon-green) 100%);
+    background: linear-gradient(135deg, rgb(var(--electric-blue)) 0%, rgb(var(--neon-green)) 100%);
   }
   
   .glow-effect {
@@ -143,16 +109,9 @@
   --destructive-foreground: hsl(60, 9%, 98%);
   --ring: hsl(193, 100%, 50%);
   --radius: 0.5rem;
-  
-  /* Gaming theme colors */
-  --gaming-dark: hsl(220, 43%, 8%);
-  --gaming-darker: hsl(220, 50%, 3%);
-  --gaming-gray: hsl(215, 32%, 17%);
-  --gaming-light: hsl(215, 28%, 24%);
-  --electric-blue: hsl(193, 100%, 50%);
-  --neon-green: hsl(145, 100%, 50%);
-  --electric-purple: hsl(248, 73%, 65%);
-  --danger-red: hsl(348, 86%, 61%);
+  /* The gaming palette lives in the :root above, as RGB channels. It used to be
+     redeclared here in hsl(), and since this block wins the cascade the first
+     definition was dead - two palettes, one silently ignored. */
 }
 
 .dark {
@@ -215,71 +174,6 @@
   font-family: 'Orbitron', monospace;
 }
 
-/* Gaming colors as utilities */
-.text-electric-blue {
-  color: var(--electric-blue);
-}
-
-.text-neon-green {
-  color: var(--neon-green);
-}
-
-.text-electric-purple {
-  color: var(--electric-purple);
-}
-
-.text-danger-red {
-  color: var(--danger-red);
-}
-
-.bg-gaming-dark {
-  background-color: var(--gaming-dark);
-}
-
-.bg-gaming-darker {
-  background-color: var(--gaming-darker);
-}
-
-.bg-gaming-gray {
-  background-color: var(--gaming-gray);
-}
-
-.bg-gaming-light {
-  background-color: var(--gaming-light);
-}
-
-.bg-electric-blue {
-  background-color: var(--electric-blue);
-}
-
-.bg-neon-green {
-  background-color: var(--neon-green);
-}
-
-.bg-electric-purple {
-  background-color: var(--electric-purple);
-}
-
-.bg-danger-red {
-  background-color: var(--danger-red);
-}
-
-.border-gaming-light {
-  border-color: var(--gaming-light);
-}
-
-.border-electric-blue {
-  border-color: var(--electric-blue);
-}
-
-.border-neon-green {
-  border-color: var(--neon-green);
-}
-
-.border-danger-red {
-  border-color: var(--danger-red);
-}
-
 .shadow-neon {
   box-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
 }
@@ -290,4 +184,23 @@
 
 .shadow-neon-purple {
   box-shadow: 0 0 20px rgba(139, 92, 246, 0.5);
+}
+
+/* ADK DEV mark.
+   The source file is a solid purple on transparent, which vanishes against this
+   theme's near-black surfaces. brightness(0) flattens every opaque pixel to
+   black while preserving the alpha shape, and invert(1) then lifts it to white -
+   so one file serves both light and dark without shipping a recoloured copy. */
+.logo-mono {
+  filter: brightness(0) invert(1);
+}
+
+.logo-badge {
+  background-color: rgb(var(--electric-blue) / 0.14);
+}
+
+@media (prefers-color-scheme: light) {
+  .logo-mono {
+    filter: brightness(0);
+  }
 }

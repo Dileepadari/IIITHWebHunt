@@ -33,7 +33,6 @@ export async function setupVite(app: Express, server: Server) {
       ...viteLogger,
       error: (msg, options) => {
         viteLogger.error(msg, options);
-        process.exit(1);
       },
     },
     server: serverOptions,
@@ -41,7 +40,10 @@ export async function setupVite(app: Express, server: Server) {
   });
 
   app.use(vite.middlewares);
-  app.use("*", async (req, res, next) => {
+  // A path-less middleware matches every request including "/". Express 5's
+  // "/*splat" wildcard deliberately does not match the root, which left the
+  // landing page returning "Cannot GET /".
+  app.use(async (req, res, next) => {
     const url = req.originalUrl;
 
     try {
@@ -79,7 +81,8 @@ export function serveStatic(app: Express) {
   app.use(express.static(distPath));
 
   // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
+  // Path-less for the same reason as above: this must also answer "/".
+  app.use((_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

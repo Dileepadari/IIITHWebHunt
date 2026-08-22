@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import logoMark from "@/assets/logo-mark.png";
 
 export default function AuthPage() {
   const { toast } = useToast();
@@ -61,6 +62,9 @@ export default function AuthPage() {
       <div className="flex-1 flex items-center justify-center p-4 md:p-8">
         <div className="w-full max-w-md">
           <div className="text-center mb-6 md:mb-8">
+            <div className="logo-badge w-12 h-12 rounded-lg flex items-center justify-center mx-auto mb-4">
+              <img src={logoMark} alt="" className="logo-mono w-7 h-7" />
+            </div>
             <h1 className="font-orbitron font-black text-3xl md:text-4xl text-neon-green mb-2">
               Website Hunt
             </h1>

@@ -1,401 +1,392 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
-import { storage } from "./storage";
+import { storage, GameStateError, sessionDeadline } from "./storage";
 import { setupAuth, isAuthenticated } from "./auth";
-import {
-  insertTeamSchema,
-  insertWebsiteSchema,
-  insertConquestSchema,
-  insertGameSessionSchema,
-} from "@shared/schema";
+import { evaluateConquest } from "./conquest";
+import { checkCooldown } from "./rateLimit";
+import { isUniqueViolation, isForeignKeyViolation } from "./dbErrors";
+import { insertTeamSchema, type User } from "@shared/schema";
+import { SUBMISSION_COOLDOWN_MS } from "@shared/url";
+import type { ConquestResult } from "@shared/conquest";
+import { z } from "zod";
+import { log } from "./vite";
+
+/** Every real-time message the server pushes. Mirrored by the client hook. */
+export type ServerEvent =
+  | "TEAM_CREATED"
+  | "WEBSITES_ADDED"
+  | "CONQUEST_RESULT"
+  | "GAME_STARTED"
+  | "GAME_PAUSED"
+  | "GAME_RESUMED"
+  | "GAME_ENDED";
+
+/** Requires an authenticated admin; every admin route goes through this. */
+const isAdmin: RequestHandler = async (req, res, next) => {
+  const sessionUser = req.user as User | undefined;
+  if (!sessionUser?.id) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+
+  // Re-read from the database rather than trusting the session copy, so that
+  // revoking admin takes effect immediately instead of at next login.
+  const user = await storage.getUser(sessionUser.id);
+  if (!user?.isAdmin) {
+    return res.status(403).json({ message: "Admin access required" });
+  }
+
+  next();
+};
+
+/** Wraps an async handler so a rejected promise becomes a 500, not a crash. */
+function route(handler: RequestHandler): RequestHandler {
+  return (req, res, next) => {
+    Promise.resolve(handler(req, res, next)).catch(next);
+  };
+}
+
+const bulkUrlsSchema = z.object({
+  urls: z.array(z.string()).min(1, "Provide at least one URL").max(500),
+});
+
+const conquestSchema = z.object({
+  url: z.string().min(1, "URL is required").max(2048),
+});
+
+const startGameSchema = z.object({
+  duration: z.coerce.number().int().positive().max(24 * 60).default(180),
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Health check endpoint
-  app.get('/api/health', (req, res) => {
+  app.get("/api/health", (_req, res) => {
     res.status(200).json({
-      status: 'ok',
+      status: "ok",
       timestamp: new Date().toISOString(),
       uptime: process.uptime(),
-      environment: process.env.NODE_ENV || 'development'
+      environment: process.env.NODE_ENV || "development",
     });
   });
 
   setupAuth(app);
 
-  // User routes
-  app.get('/api/users', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const user = await storage.getUser(userId);
+  // ----------------------------------------------------------------- users
 
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
+  app.get(
+    "/api/users",
+    isAuthenticated,
+    isAdmin,
+    route(async (_req, res) => {
       const users = await storage.getAllUsers();
-      res.json(users);
-    } catch (error) {
-      console.error("Error fetching users:", error);
-      res.status(500).json({ message: "Failed to fetch users" });
-    }
-  });
+      // Never ship password hashes to the admin panel; it only needs identities.
+      res.json(users.map(({ password, ...user }) => user));
+    }),
+  );
 
-  // Team routes
-  app.get('/api/teams', isAuthenticated, async (req, res) => {
-    try {
-      const teams = await storage.getTeams();
-      res.json(teams);
-    } catch (error) {
-      console.error("Error fetching teams:", error);
-      res.status(500).json({ message: "Failed to fetch teams" });
-    }
-  });
+  // ----------------------------------------------------------------- teams
 
-  app.get('/api/teams/my-team', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const team = await storage.getTeamByUserId(userId);
-      res.json(team);
-    } catch (error) {
-      console.error("Error fetching user team:", error);
-      res.status(500).json({ message: "Failed to fetch team" });
-    }
-  });
+  app.get(
+    "/api/teams",
+    isAuthenticated,
+    route(async (_req, res) => {
+      res.json(await storage.getTeams());
+    }),
+  );
 
-  app.post('/api/teams', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const user = await storage.getUser(userId);
+  app.get(
+    "/api/teams/my-team",
+    isAuthenticated,
+    route(async (req, res) => {
+      const team = await storage.getTeamByUserId((req.user as User).id);
+      res.json(team ?? null);
+    }),
+  );
 
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+  app.post(
+    "/api/teams",
+    isAuthenticated,
+    isAdmin,
+    route(async (req, res) => {
+      const parsed = insertTeamSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid team" });
       }
 
-      const validatedData = insertTeamSchema.parse(req.body);
-      const team = await storage.createTeam(validatedData);
+      const name = parsed.data.name.trim();
+      if (!name) return res.status(400).json({ message: "Team name is required" });
 
-      broadcastToAll({
-        type: 'TEAM_CREATED',
-        data: team
-      });
-
-      res.json(team);
-    } catch (error) {
-      console.error("Error creating team:", error);
-      res.status(500).json({ message: "Failed to create team" });
-    }
-  });
-
-  // Website routes
-  app.get('/api/websites', isAuthenticated, async (req, res) => {
-    try {
-      const websites = await storage.getWebsites();
-      res.json(websites);
-    } catch (error) {
-      console.error("Error fetching websites:", error);
-      res.status(500).json({ message: "Failed to fetch websites" });
-    }
-  });
-
-  app.get('/api/websites/available', isAuthenticated, async (req, res) => {
-    try {
-      const websites = await storage.getAvailableWebsites();
-      res.json(websites);
-    } catch (error) {
-      console.error("Error fetching available websites:", error);
-      res.status(500).json({ message: "Failed to fetch available websites" });
-    }
-  });
-
-  app.post('/api/websites', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const user = await storage.getUser(userId);
-
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+      const members = (parsed.data.members ?? []).map((m) => m.trim()).filter(Boolean);
+      if (members.length === 0) {
+        return res.status(400).json({ message: "A team needs at least one member" });
       }
 
-      const validatedData = insertWebsiteSchema.parse(req.body);
-      const website = await storage.createWebsite(validatedData);
-      res.json(website);
-    } catch (error) {
-      console.error("Error creating website:", error);
-      res.status(500).json({ message: "Failed to create website" });
-    }
-  });
+      // A captain must also be a member, otherwise they cannot submit for the
+      // team they lead (membership is what /teams/my-team looks up).
+      const captainId = parsed.data.captainId || null;
+      if (captainId && !members.includes(captainId)) members.push(captainId);
 
-  app.post('/api/websites/bulk', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const user = await storage.getUser(userId);
-
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
-      const { urls } = req.body;
-      if (!Array.isArray(urls)) {
-        return res.status(400).json({ message: "URLs must be an array" });
-      }
-
-      const websites = await storage.createWebsitesBulk(urls);
-      res.json({ count: websites.length, websites });
-    } catch (error) {
-      console.error("Error creating websites in bulk:", error);
-      res.status(500).json({ message: "Failed to create websites" });
-    }
-  });
-
-  // Conquest routes
-  app.post('/api/conquests', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const team = await storage.getTeamByUserId(userId);
-
-      if (!team) {
-        return res.status(400).json({ message: "You must be part of a team to make conquest attempts" });
-      }
-
-      const { url } = req.body;
-      if (!url) {
-        return res.status(400).json({ message: "URL is required" });
-      }
-
-      const website = await storage.getWebsiteByUrl(url);
-      let points = -25;
-      let isSuccessful = false;
-      let websiteId = null;
-
-      if (website && !website.isConquered) {
-        points = website.points || 100;
-        isSuccessful = true;
-        websiteId = website.id;
-        await storage.conquerWebsite(website.id, team.id);
-      }
-
-      if(website && website.isConquered){
-        points = 0;
-      }
-
-      const conquest = await storage.createConquest({
-        teamId: team.id,
-        websiteId,
-        url,
-        isSuccessful,
-        points,
-      });
-
-      await storage.updateTeamScore(team.id, points);
-
-      const updatedTeams = await storage.getTeams();
-      broadcastToAll({
-        type: 'CONQUEST_RESULT',
-        data: {
-          conquest: { ...conquest, team, website },
-          leaderboard: updatedTeams,
+      try {
+        const team = await storage.createTeam({ ...parsed.data, name, members, captainId });
+        broadcast("TEAM_CREATED", team);
+        res.status(201).json(team);
+      } catch (error) {
+        if (isUniqueViolation(error)) {
+          return res.status(409).json({ message: `A team named "${name}" already exists` });
         }
+        if (isForeignKeyViolation(error)) {
+          return res.status(400).json({ message: "That captain is not a registered user" });
+        }
+        throw error;
+      }
+    }),
+  );
+
+  // -------------------------------------------------------------- websites
+
+  app.get(
+    "/api/websites",
+    isAuthenticated,
+    route(async (_req, res) => {
+      res.json(await storage.getWebsites());
+    }),
+  );
+
+  app.get(
+    "/api/websites/available",
+    isAuthenticated,
+    route(async (_req, res) => {
+      res.json(await storage.getAvailableWebsites());
+    }),
+  );
+
+  app.post(
+    "/api/websites/bulk",
+    isAuthenticated,
+    isAdmin,
+    route(async (req, res) => {
+      const parsed = bulkUrlsSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "Invalid URLs" });
+      }
+
+      const report = await storage.createWebsitesBulk(parsed.data.urls);
+      if (report.added.length > 0) broadcast("WEBSITES_ADDED", { count: report.added.length });
+
+      res.json({
+        count: report.added.length,
+        duplicates: report.duplicates.length,
+        rejected: report.rejected,
+        websites: report.added,
       });
+    }),
+  );
 
-      res.json({ conquest, points, isSuccessful });
-    } catch (error) {
-      console.error("Error processing conquest:", error);
-      res.status(500).json({ message: "Failed to process conquest" });
-    }
-  });
+  // -------------------------------------------------------------- conquest
 
-  app.get('/api/conquests/team/:userId', isAuthenticated, async (req, res) => {
-    try {
-      const { userId } = req.params;
-      const team = await storage.getTeamByUserId(userId);
-      if (!team) return res.json([]);
-      const conquests = await storage.getConquestsByTeam(team.id);
-      res.json(conquests);
-    } catch (error) {
-      console.error("Error fetching team conquests:", error);
-      res.status(500).json({ message: "Failed to fetch team conquests" });
-    }
-  });
+  app.post(
+    "/api/conquests",
+    isAuthenticated,
+    route(async (req, res) => {
+      const parsed = conquestSchema.safeParse(req.body);
+      if (!parsed.success) {
+        return res.status(400).json({ message: parsed.error.issues[0]?.message ?? "URL is required" });
+      }
 
-  app.get('/api/conquests/recent', isAuthenticated, async (req, res) => {
-    try {
-      const limit = parseInt(req.query.limit as string) || 20;
-      const conquests = await storage.getRecentConquests(limit);
-      res.json(conquests);
-    } catch (error) {
-      console.error("Error fetching recent conquests:", error);
-      res.status(500).json({ message: "Failed to fetch recent conquests" });
-    }
-  });
+      const team = await storage.getTeamByUserId((req.user as User).id);
+      if (!team) {
+        return res
+          .status(403)
+          .json({ message: "You must be part of a team to make conquest attempts" });
+      }
 
-  // Game session routes
-  app.get('/api/game/current', isAuthenticated, async (req, res) => {
-    try {
+      // The hunt is only open while a game is actually running.
       const session = await storage.getCurrentGameSession();
-      res.json(session);
-    } catch (error) {
-      console.error("Error fetching current game session:", error);
-      res.status(500).json({ message: "Failed to fetch current game session" });
-    }
-  });
+      if (!session || session.status !== "active") {
+        return res.status(409).json({
+          message:
+            session?.status === "paused"
+              ? "The game is paused. Hang tight until an admin resumes it."
+              : "There is no game running right now.",
+        });
+      }
 
-  app.post('/api/game/start', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const user = await storage.getUser(userId);
+      const cooldown = checkCooldown(team.id);
+      if (!cooldown.allowed) {
+        res.setHeader("Retry-After", Math.ceil(cooldown.retryAfterMs / 1000));
+        return res.status(429).json({
+          message: "Slow down - one submission every 2 seconds.",
+          retryAfterMs: cooldown.retryAfterMs,
+        });
+      }
 
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
+      const decision = await evaluateConquest(parsed.data.url, team);
+      if (decision.kind === "rejected") {
+        return res.status(400).json({ message: decision.message, reason: decision.reason });
+      }
+
+      const result: ConquestResult = {
+        outcome: decision.outcome,
+        points: decision.score ? decision.points : 0,
+        isSuccessful: decision.isSuccessful,
+        url: decision.url,
+        discovered: decision.discovered,
+        website: decision.website,
+        conqueredBy: decision.conqueredBy,
+        team,
+      };
+
+      if (decision.record) {
+        result.conquest = await storage.recordAttempt({
+          teamId: team.id,
+          websiteId: decision.website?.id ?? null,
+          url: decision.url,
+          // Always the canonical key, never the display URL: this is the column
+          // getTeamAttempt() matches on to recognise a repeat submission.
+          normalizedUrl: decision.key,
+          isSuccessful: decision.isSuccessful,
+          points: result.points,
+          outcome: decision.outcome,
+        });
+      }
+
+      if (decision.score) {
+        await storage.applyAttemptToTeam(team.id, result.points, decision.isSuccessful);
+        result.team = await storage.getTeamById(team.id);
+      }
+
+      // Only broadcast when something actually changed; a repeat submission or a
+      // "already done" reply must not spam every connected leaderboard.
+      if (decision.record || decision.score) {
+        broadcast("CONQUEST_RESULT", {
+          conquest: result.conquest,
+          outcome: decision.outcome,
+          team: result.team,
+          website: decision.website,
+          leaderboard: await storage.getTeams(),
+        });
+      }
+
+      res.json(result);
+    }),
+  );
+
+  app.get(
+    "/api/conquests/my-team",
+    isAuthenticated,
+    route(async (req, res) => {
+      const team = await storage.getTeamByUserId((req.user as User).id);
+      if (!team) return res.json([]);
+      res.json(await storage.getConquestsByTeam(team.id));
+    }),
+  );
+
+  app.get(
+    "/api/conquests/recent",
+    isAuthenticated,
+    route(async (req, res) => {
+      const limit = Math.min(Math.max(Number(req.query.limit) || 20, 1), 100);
+      res.json(await storage.getRecentConquests(limit));
+    }),
+  );
+
+  // ---------------------------------------------------------- game session
+
+  app.get(
+    "/api/game/current",
+    isAuthenticated,
+    route(async (_req, res) => {
+      const session = await storage.getCurrentGameSession();
+      if (!session) return res.json(null);
+
+      // Hand the client an absolute deadline instead of letting it re-derive one
+      // from start time and duration against a possibly-skewed local clock.
+      const deadline = sessionDeadline(session);
+      res.json({
+        ...session,
+        endsAt: deadline ? deadline.toISOString() : null,
+        serverTime: new Date().toISOString(),
+        cooldownMs: SUBMISSION_COOLDOWN_MS,
+      });
+    }),
+  );
+
+  app.post(
+    "/api/game/start",
+    isAuthenticated,
+    isAdmin,
+    route(async (req, res) => {
+      const parsed = startGameSchema.safeParse(req.body ?? {});
+      if (!parsed.success) {
+        return res.status(400).json({ message: "Duration must be a positive number of minutes" });
       }
 
       const session = await storage.createGameSession({
-        status: 'active',
+        status: "active",
         startTime: new Date(),
-        duration: req.body.duration || 180,
+        duration: parsed.data.duration,
       });
 
-      broadcastToAll({
-        type: 'GAME_STARTED',
-        data: session
-      });
+      broadcast("GAME_STARTED", session);
+      res.status(201).json(session);
+    }),
+  );
 
-      res.json(session);
-    } catch (error) {
-      console.error("Error starting game:", error);
-      res.status(500).json({ message: "Failed to start game" });
-    }
-  });
+  for (const [path, action, event] of [
+    ["pause", "pauseCurrentGame", "GAME_PAUSED"],
+    ["resume", "resumeCurrentGame", "GAME_RESUMED"],
+    ["end", "endCurrentGame", "GAME_ENDED"],
+  ] as const) {
+    app.post(
+      `/api/game/${path}`,
+      isAuthenticated,
+      isAdmin,
+      route(async (_req, res) => {
+        const session = await storage[action]();
+        broadcast(event, session);
+        res.json(session);
+      }),
+    );
+  }
 
-  app.post('/api/game/pause', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const user = await storage.getUser(userId);
+  app.get(
+    "/api/admin/stats",
+    isAuthenticated,
+    route(async (_req, res) => {
+      // Readable by any player: the same counters drive the public hero banner.
+      res.json(await storage.getGameStats());
+    }),
+  );
 
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
+  // ------------------------------------------------------------- websocket
 
-      const session = await storage.pauseCurrentGame();
-      broadcastToAll({
-        type: 'GAME_PAUSED',
-        data: session
-      });
-
-      res.json(session);
-    } catch (error) {
-      console.error("Error pausing game:", error);
-      res.status(500).json({ message: "Failed to pause game" });
-    }
-  });
-
-  app.post('/api/game/resume', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const user = await storage.getUser(userId);
-
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
-      const session = await storage.resumeCurrentGame();
-      broadcastToAll({
-        type: 'GAME_RESUMED',
-        data: session
-      });
-
-      res.json(session);
-    } catch (error) {
-      console.error("Error resuming game:", error);
-      res.status(500).json({ message: "Failed to resume game" });
-    }
-  });
-
-  app.post('/api/game/end', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const user = await storage.getUser(userId);
-
-      if (!user?.isAdmin) {
-        return res.status(403).json({ message: "Admin access required" });
-      }
-
-      const session = await storage.endCurrentGame();
-      broadcastToAll({
-        type: 'GAME_ENDED',
-        data: session
-      });
-
-      res.json(session);
-    } catch (error) {
-      console.error("Error ending game:", error);
-      res.status(500).json({ message: "Failed to end game" });
-    }
-  });
-
-  app.get('/api/admin/stats', isAuthenticated, async (req: any, res) => {
-    try {
-      const userId = req.user.id;
-      const user = await storage.getUser(userId);
-
-      // if (!user?.isAdmin) {
-      //   return res.status(403).json({ message: "Admin access required" });
-      // }
-
-      const stats = await storage.getGameStats();
-      res.json(stats);
-    } catch (error) {
-      console.error("Error fetching admin stats:", error);
-      res.status(500).json({ message: "Failed to fetch admin stats" });
-    }
-  });
-
-  // Create HTTP server manually
   const httpServer = createServer(app);
-
-  // WebSocket server for real-time updates (noServer mode)
   const wss = new WebSocketServer({ noServer: true });
 
   wss.on("connection", (ws: WebSocket) => {
-    console.log("New WebSocket connection");
-
-    ws.on("message", (message: string) => {
-      try {
-        const data = JSON.parse(message);
-        console.log("Received WebSocket message:", data);
-      } catch (error) {
-        console.error("Invalid WebSocket message:", error);
-      }
-    });
-
-    ws.on("close", () => {
-      console.log("WebSocket connection closed");
-    });
+    ws.send(JSON.stringify({ type: "CONNECTED" }));
+    ws.on("error", (error) => log(`websocket error: ${error.message}`, "ws"));
   });
 
-  // Forward upgrade requests to the correct WebSocket server
   httpServer.on("upgrade", (request, socket, head) => {
-    const { url } = request;
-
-    if (url?.startsWith("/ws")) {
-      wss.handleUpgrade(request, socket, head, (ws) => {
-        wss.emit("connection", ws, request);
-      });
-    }
-
-    // If not /ws, let Vite (or other handlers) handle the upgrade
+    // Only claim /ws; anything else belongs to Vite's HMR socket in development.
+    if (!request.url?.startsWith("/ws")) return;
+    wss.handleUpgrade(request, socket, head, (ws) => wss.emit("connection", ws, request));
   });
 
-  // Make broadcast available globally
-  function broadcastToAll(data: any) {
-    wss.clients.forEach((client) => {
-      if (client.readyState === WebSocket.OPEN) {
-        client.send(JSON.stringify(data));
-      }
-    });
+  function broadcast(type: ServerEvent, data: unknown): void {
+    const payload = JSON.stringify({ type, data });
+    for (const client of wss.clients) {
+      if (client.readyState === WebSocket.OPEN) client.send(payload);
+    }
   }
 
-  (global as any).broadcastToAll = broadcastToAll;
+  // Illegal state transitions are the caller's fault, not a server fault.
+  app.use((err: any, _req: any, res: any, next: any) => {
+    if (err instanceof GameStateError) {
+      return res.status(err.status).json({ message: err.message });
+    }
+    next(err);
+  });
 
   return httpServer;
 }

@@ -1,19 +1,35 @@
 import { useQuery } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/useWebSocket";
-import { useAuth } from "@/hooks/useAuth";
-import { Conquest } from "@shared/schema";
+import { Conquest, Team, Website } from "@shared/schema";
+import { CONQUEST_PRESENTATION, type ConquestOutcome } from "@shared/conquest";
+
+type ConquestWithContext = Conquest & { team: Team; website?: Website };
+
+/** Attempt timestamps are nullable in the schema; render a placeholder rather than "Invalid Date". */
+function formatTime(value: Date | string | null): string {
+  if (!value) return "just now";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? "just now" : date.toLocaleTimeString();
+}
+
+function outcomeLabel(conquest: Conquest): string {
+  const outcome = conquest.outcome as ConquestOutcome;
+  return CONQUEST_PRESENTATION[outcome]?.title ?? (conquest.isSuccessful ? "Conquered" : "Missed");
+}
 
 export default function ConquestHistory() {
-  const { user } = useAuth();
-  
-  const { data: conquests, isLoading } = useQuery<Conquest[]>({
+  const { data: conquests, isLoading } = useQuery<ConquestWithContext[]>({
     queryKey: ["/api/conquests/recent"],
-    refetchInterval: 10000, // Refresh every 10 seconds
+    // Backstop only: the websocket pushes these updates as they happen.
+    // Polling exists to recover from a missed event, not to drive the UI.
+    refetchInterval: 60000,
   });
 
+  // Scoped to the caller's own team by the server, so no id has to be threaded
+  // through the query key (the old key passed a user id to a route that wanted
+  // a team id, and always came back empty).
   const { data: myTeamConquests } = useQuery<Conquest[]>({
-    queryKey: ["/api/conquests/team", (user as any)?.id],
-    enabled: !!(user as any)?.id,
+    queryKey: ["/api/conquests/my-team"],
   });
 
   // Use WebSocket for real-time updates
@@ -85,9 +101,9 @@ export default function ConquestHistory() {
             </div>
           ) : (
             <div className="space-y-4">
-              {recentConquests.map((conquest, index) => (
+              {recentConquests.map((conquest) => (
                 <div 
-                  key={index}
+                  key={conquest.id}
                   className={`flex items-center space-x-4 p-3 rounded-lg ${
                     conquest.isSuccessful 
                       ? "bg-neon-green/10 border border-neon-green/30" 
@@ -104,7 +120,7 @@ export default function ConquestHistory() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
                       <span className="font-medium text-white truncate">
-                        {conquest.teamName}
+                        {conquest.team?.name ?? "Unknown team"}
                       </span>
                       <span className={`text-sm font-bold ${
                         conquest.isSuccessful ? "text-neon-green" : "text-red-400"
@@ -113,7 +129,7 @@ export default function ConquestHistory() {
                       </span>
                     </div>
                     <p className="text-xs text-gray-400 truncate">
-                      {new Date(conquest.attemptedAt).toLocaleTimeString()}
+                      {conquest.website?.url ?? conquest.url} · {formatTime(conquest.attemptedAt)}
                     </p>
                   </div>
                 </div>
@@ -137,9 +153,9 @@ export default function ConquestHistory() {
             </div>
           ) : (
             <div className="space-y-4">
-              {myRecentConquests.map((conquest, index) => (
+              {myRecentConquests.map((conquest) => (
                 <div 
-                  key={index}
+                  key={conquest.id}
                   className={`flex items-center space-x-4 p-3 rounded-lg ${
                     conquest.isSuccessful 
                       ? "bg-electric-blue/10 border border-electric-blue/30" 
@@ -156,7 +172,7 @@ export default function ConquestHistory() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center space-x-2">
                       <span className="font-medium text-white text-sm">
-                        {conquest.isSuccessful ? 'Successful conquest' : 'Failed attempt'}
+                        {outcomeLabel(conquest)}
                       </span>
                       <span className={`text-sm font-bold ${
                         conquest.isSuccessful ? "text-electric-blue" : "text-yellow-400"
@@ -164,8 +180,8 @@ export default function ConquestHistory() {
                         {conquest.points > 0 ? '+' : ''}{conquest.points}
                       </span>
                     </div>
-                    <p className="text-xs text-gray-400">
-                      {new Date(conquest.attemptedAt).toLocaleTimeString()}
+                    <p className="text-xs text-gray-400 truncate">
+                      {conquest.url} · {formatTime(conquest.attemptedAt)}
                     </p>
                   </div>
                 </div>
