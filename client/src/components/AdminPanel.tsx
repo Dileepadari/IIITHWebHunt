@@ -16,7 +16,52 @@ import { Team, Website, GameSession } from "@shared/schema";
 interface GameStats {
   totalWebsites: number;
   conquered: number;
+  discovered: number;
   activeTeams: number;
+  totalAttempts: number;
+}
+
+type RejectedUrl = { url: string; reason: string };
+
+type BulkAddResponse = {
+  count: number;
+  duplicates: number;
+  rejected: RejectedUrl[];
+  websites: Website[];
+};
+
+/** Server rejection codes, in the admin's language. */
+const REJECTION_LABEL: Record<string, string> = {
+  empty: "blank",
+  malformed: "not a URL",
+  not_a_hostname: "not a hostname",
+  not_hunt_domain: "not an iiit.ac.in domain",
+};
+
+/**
+ * Shared failure handling for every admin action.
+ *
+ * The five copies this replaces each redirected to "/api/login", which is not a
+ * page - it is the POST endpoint - so an expired session sent admins to a blank
+ * error instead of the sign-in form.
+ */
+function useAdminErrorHandler() {
+  const { toast } = useToast();
+
+  return (error: Error) => {
+    if (isUnauthorizedError(error)) {
+      toast({
+        title: "Session expired",
+        description: "Please sign in again.",
+        variant: "destructive",
+      });
+      setTimeout(() => {
+        window.location.href = "/auth";
+      }, 800);
+      return;
+    }
+    toast({ title: "Error", description: error.message, variant: "destructive" });
+  };
 }
 
 export default function AdminPanel() {
@@ -24,7 +69,9 @@ export default function AdminPanel() {
   const [showTeamModal, setShowTeamModal] = useState(false);
   const [newGameDuration, setNewGameDuration] = useState("");
   const [bulkWebsites, setBulkWebsites] = useState("");
+  const [rejectedUrls, setRejectedUrls] = useState<RejectedUrl[]>([]);
   const { toast } = useToast();
+  const handleError = useAdminErrorHandler();
 
   // Queries
   const { data: stats } = useQuery<GameStats>({
@@ -58,24 +105,7 @@ export default function AdminPanel() {
       queryClient.invalidateQueries({ queryKey: ["/api/game/current"] });
       setNewGameDuration("");
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onError: handleError,
   });
 
   const pauseGameMutation = useMutation({
@@ -91,24 +121,7 @@ export default function AdminPanel() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/game/current"] });
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onError: handleError,
   });
 
   const resumeGameMutation = useMutation({
@@ -124,24 +137,7 @@ export default function AdminPanel() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/game/current"] });
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onError: handleError,
   });
 
   const endGameMutation = useMutation({
@@ -157,59 +153,36 @@ export default function AdminPanel() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/game/current"] });
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onError: handleError,
   });
 
   const addWebsitesMutation = useMutation({
     mutationFn: async (websiteUrls: string[]) => {
       const response = await apiRequest("POST", "/api/websites/bulk", { urls: websiteUrls });
-      return await response.json();
+      return (await response.json()) as BulkAddResponse;
     },
     onSuccess: (data) => {
+      // Report skipped lines rather than silently swallowing them, so an admin
+      // pasting 40 URLs can see exactly which ones did not land.
+      const notes = [
+        data.duplicates > 0 ? `${data.duplicates} already listed` : null,
+        data.rejected.length > 0 ? `${data.rejected.length} rejected` : null,
+      ].filter(Boolean);
+
       toast({
-        title: "Websites Added",
-        description: `Successfully added ${data.count} websites.`,
-        variant: "default",
+        title: data.count > 0 ? "Websites Added" : "Nothing Added",
+        description:
+          `Added ${data.count} website${data.count === 1 ? "" : "s"}` +
+          (notes.length > 0 ? ` (${notes.join(", ")}).` : "."),
+        variant: data.count > 0 ? "default" : "destructive",
       });
+
+      setRejectedUrls(data.rejected);
       queryClient.invalidateQueries({ queryKey: ["/api/websites"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/stats"] });
-      setBulkWebsites("");
+      if (data.count > 0) setBulkWebsites("");
     },
-    onError: (error) => {
-      if (isUnauthorizedError(error)) {
-        toast({
-          title: "Unauthorized",
-          description: "You are logged out. Logging in again...",
-          variant: "destructive",
-        });
-        setTimeout(() => {
-          window.location.href = "/api/login";
-        }, 500);
-        return;
-      }
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onError: handleError,
   });
 
   const handleStartGame = () => {
@@ -235,20 +208,23 @@ export default function AdminPanel() {
       return;
     }
 
+    // Split on newlines *and* commas, and do not pre-filter: the server owns URL
+    // validation, and dropping lines here just hid typos from the admin.
     const urls = bulkWebsites
-      .split('\n')
-      .map(url => url.trim())
-      .filter(url => url.length > 0 && url.includes('iiit.ac.in'));
+      .split(/[\n,]/)
+      .map((url) => url.trim())
+      .filter((url) => url.length > 0);
 
     if (urls.length === 0) {
       toast({
-        title: "No Valid URLs",
-        description: "Please enter valid IIIT Hyderabad website URLs.",
+        title: "No URLs Provided",
+        description: "Please enter at least one website URL.",
         variant: "destructive",
       });
       return;
     }
 
+    setRejectedUrls([]);
     addWebsitesMutation.mutate(urls);
   };
 
@@ -341,6 +317,21 @@ export default function AdminPanel() {
               <div className="text-3xl font-orbitron font-bold text-white">
                 {stats?.activeTeams || 0}
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="conquest-card border-none">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-yellow-400 flex items-center">
+                <i className="fas fa-magnifying-glass-location mr-2"></i>
+                Player-Discovered
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-orbitron font-bold text-white">
+                {stats?.discovered || 0}
+              </div>
+              <p className="text-xs text-gray-400 mt-1">Verified live and added automatically</p>
             </CardContent>
           </Card>
 
@@ -533,6 +524,23 @@ export default function AdminPanel() {
                   onChange={(e) => setBulkWebsites(e.target.value)}
                   className="bg-gaming-dark border-gaming-light text-white min-h-[120px]"
                 />
+                {rejectedUrls.length > 0 && (
+                  <div className="mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-3">
+                    <p className="text-sm font-semibold text-yellow-400 mb-2">
+                      Skipped {rejectedUrls.length} URL{rejectedUrls.length === 1 ? "" : "s"}
+                    </p>
+                    <ul className="space-y-1 max-h-32 overflow-y-auto">
+                      {rejectedUrls.map((item, index) => (
+                        <li key={`${item.url}-${index}`} className="text-xs text-gray-300 break-all">
+                          <span className="text-gray-500">
+                            {REJECTION_LABEL[item.reason] ?? item.reason}:
+                          </span>{" "}
+                          {item.url || "(blank line)"}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
                 <Button
                   onClick={handleBulkAddWebsites}
                   disabled={addWebsitesMutation.isPending}
@@ -564,9 +572,9 @@ export default function AdminPanel() {
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2 max-h-64 overflow-y-auto">
-                    {websites.map((website, index) => (
+                    {websites.map((website) => (
                       <div 
-                        key={index}
+                        key={website.id}
                         className={`p-2 rounded text-sm ${
                           website.isConquered 
                             ? "bg-neon-green/20 border border-neon-green/30 text-neon-green" 
@@ -575,7 +583,15 @@ export default function AdminPanel() {
                       >
                         <div className="flex items-center space-x-2">
                           <i className={`fas fa-${website.isConquered ? 'check-circle' : 'circle'} text-xs`}></i>
-                          <span className="truncate">{website.url}</span>
+                          <span className="truncate flex-1">{website.url}</span>
+                          {website.source === "discovered" && (
+                            <span
+                              className="text-[10px] uppercase tracking-wide text-yellow-400 shrink-0"
+                              title="Found by a team and verified live"
+                            >
+                              found
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}

@@ -11,6 +11,19 @@ export default {
         sm: "calc(var(--radius) - 4px)",
       },
       colors: {
+        // The game palette, wired to the RGB-channel variables in index.css.
+        // Registering them here (rather than as hand-written .bg-* classes) is
+        // what makes opacity modifiers work: bg-neon-green/10, border-neon-green/30
+        // and bg-opacity-20 were all no-ops while these were plain CSS classes.
+        "gaming-dark": "rgb(var(--gaming-dark) / <alpha-value>)",
+        "gaming-darker": "rgb(var(--gaming-darker) / <alpha-value>)",
+        "gaming-gray": "rgb(var(--gaming-gray) / <alpha-value>)",
+        "gaming-light": "rgb(var(--gaming-light) / <alpha-value>)",
+        "electric-blue": "rgb(var(--electric-blue) / <alpha-value>)",
+        "neon-green": "rgb(var(--neon-green) / <alpha-value>)",
+        "electric-purple": "rgb(var(--electric-purple) / <alpha-value>)",
+        "danger-red": "rgb(var(--danger-red) / <alpha-value>)",
+
         background: "var(--background)",
         foreground: "var(--foreground)",
         card: {

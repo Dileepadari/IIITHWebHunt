@@ -1,126 +1,119 @@
-import { useEffect, useRef } from 'react';
-import { queryClient } from '@/lib/queryClient';
+import { useEffect, useRef } from "react";
+import { queryClient } from "@/lib/queryClient";
 
-export function useWebSocket() {
-  const reconnectTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const reconnectAttempts = useRef(0);
-  const maxReconnectAttempts = 5;
-  const socketRef = useRef<WebSocket | null>(null);
+/**
+ * Which queries each server event invalidates.
+ *
+ * The previous version listened for "conquest"/"team_update"/"game_update",
+ * none of which the server has ever sent - every message fell through to the
+ * default branch and invalidated the entire cache, refetching everything on
+ * every event.
+ */
+const INVALIDATIONS: Record<string, string[]> = {
+  CONQUEST_RESULT: [
+    "/api/teams",
+    "/api/teams/my-team",
+    "/api/conquests/recent",
+    "/api/conquests/my-team",
+    "/api/websites",
+    "/api/admin/stats",
+  ],
+  TEAM_CREATED: ["/api/teams", "/api/teams/my-team", "/api/admin/stats"],
+  WEBSITES_ADDED: ["/api/websites", "/api/websites/available", "/api/admin/stats"],
+  GAME_STARTED: ["/api/game/current", "/api/admin/stats"],
+  GAME_PAUSED: ["/api/game/current"],
+  GAME_RESUMED: ["/api/game/current"],
+  GAME_ENDED: ["/api/game/current", "/api/teams"],
+};
 
-  // Optional: expose readyState for UI
-  // const [readyState, setReadyState] = useState<WebSocket['readyState']>(WebSocket.CLOSED);
+const MAX_RECONNECT_ATTEMPTS = 8;
 
-  const connect = () => {
-    // Always clear any previous reconnect timeouts before reconnecting
-    if (reconnectTimeoutRef.current) {
-      clearTimeout(reconnectTimeoutRef.current);
-      reconnectTimeoutRef.current = null;
-    }
+/**
+ * Keeps a single live connection for the page.
+ *
+ * Several components call this hook, so the socket is module-scoped and
+ * reference-counted; the old per-component sockets meant every mounted panel
+ * opened its own connection and received its own copy of every broadcast.
+ */
+let sharedSocket: WebSocket | null = null;
+let subscribers = 0;
+let reconnectAttempts = 0;
+let reconnectTimer: number | null = null;
+let intentionallyClosed = false;
 
-    // Clean up previous socket if exists
-    if (socketRef.current) {
-      socketRef.current.onopen = null;
-      socketRef.current.onmessage = null;
-      socketRef.current.onclose = null;
-      socketRef.current.onerror = null;
-      socketRef.current.close(1000, 'Reconnecting');
-    }
+function handleMessage(event: MessageEvent) {
+  let data: { type?: string };
+  try {
+    data = JSON.parse(event.data);
+  } catch {
+    return;
+  }
 
-    try {
-      const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
-      console.log('Connecting to WebSocket:', wsUrl);
+  if (!data.type || data.type === "CONNECTED") return;
 
-      const socket = new window.WebSocket(wsUrl);
-      socketRef.current = socket;
+  const keys = INVALIDATIONS[data.type];
+  if (!keys) return;
 
-      socket.onopen = () => {
-        console.log('WebSocket connected');
-        reconnectAttempts.current = 0;
-        // setReadyState(WebSocket.OPEN);
-      };
-
-      socket.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          console.log('WebSocket message received:', data);
-
-          if (data.type === 'connection') {
-            console.log('WebSocket connection confirmed:', data.message);
-            return;
-          }
-
-          switch (data.type) {
-            case 'conquest':
-              queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
-              queryClient.invalidateQueries({ queryKey: ['/api/conquests'] });
-              queryClient.invalidateQueries({ queryKey: ['/api/teams/my-team'] });
-              break;
-            case 'team_update':
-              queryClient.invalidateQueries({ queryKey: ['/api/teams'] });
-              queryClient.invalidateQueries({ queryKey: ['/api/teams/my-team'] });
-              break;
-            case 'game_update':
-              queryClient.invalidateQueries({ queryKey: ['/api/game/current'] });
-              queryClient.invalidateQueries({ queryKey: ['/api/admin/stats'] });
-              break;
-            default:
-              console.log('Unknown WebSocket event type:', data.type);
-              if (data.type !== 'connection') {
-                queryClient.invalidateQueries();
-              }
-          }
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
-      };
-
-      socket.onclose = (event) => {
-        console.log('WebSocket disconnected. Code:', event.code, 'Reason:', event.reason);
-        // setReadyState(WebSocket.CLOSED);
-
-        // Only attempt reconnection if it wasn't a normal closure and we haven't exceeded max attempts
-        if (event.code !== 1000 && reconnectAttempts.current < maxReconnectAttempts) {
-          const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 10000); // Exponential backoff
-          console.log(`Attempting to reconnect in ${delay}ms (attempt ${reconnectAttempts.current + 1}/${maxReconnectAttempts})`);
-
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectAttempts.current++;
-            connect();
-          }, delay);
-        } else if (reconnectAttempts.current >= maxReconnectAttempts) {
-          console.error('Failed to reconnect to WebSocket after maximum attempts');
-        }
-      };
-
-      socket.onerror = (error) => {
-        console.error('WebSocket error:', error);
-        // It's generally best to let onclose handle reconnection logic
-      };
-    } catch (error) {
-      console.error('Error creating WebSocket connection:', error);
-    }
-  };
-
-  useEffect(() => {
-    connect();
-
-    return () => {
-      if (reconnectTimeoutRef.current) {
-        clearTimeout(reconnectTimeoutRef.current);
-        reconnectTimeoutRef.current = null;
-      }
-      if (socketRef.current) {
-        socketRef.current.onopen = null;
-        socketRef.current.onmessage = null;
-        socketRef.current.onclose = null;
-        socketRef.current.onerror = null;
-        socketRef.current.close(1000, 'Component unmounting');
-        socketRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  for (const key of keys) {
+    queryClient.invalidateQueries({ queryKey: [key] });
+  }
 }
 
-// Optionally export the readyState for UI if needed
+function openSocket() {
+  if (sharedSocket && (sharedSocket.readyState === WebSocket.OPEN || sharedSocket.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  const socket = new WebSocket(`${protocol}//${window.location.host}/ws`);
+  sharedSocket = socket;
+
+  socket.onopen = () => {
+    reconnectAttempts = 0;
+    // A dropped connection means we missed events; resync rather than trusting
+    // whatever the cache held while we were offline.
+    queryClient.invalidateQueries();
+  };
+
+  socket.onmessage = handleMessage;
+
+  socket.onclose = () => {
+    sharedSocket = null;
+    if (intentionallyClosed || subscribers === 0) return;
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
+
+    const delay = Math.min(1000 * 2 ** reconnectAttempts, 15000);
+    reconnectAttempts++;
+    reconnectTimer = window.setTimeout(openSocket, delay);
+  };
+
+  socket.onerror = () => {
+    // Reconnection is driven entirely from onclose, which always follows.
+  };
+}
+
+export function useWebSocket(): void {
+  const subscribed = useRef(false);
+
+  useEffect(() => {
+    if (subscribed.current) return;
+    subscribed.current = true;
+    subscribers++;
+    intentionallyClosed = false;
+    openSocket();
+
+    return () => {
+      subscribed.current = false;
+      subscribers--;
+      if (subscribers > 0) return;
+
+      intentionallyClosed = true;
+      if (reconnectTimer !== null) {
+        window.clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+      }
+      sharedSocket?.close(1000, "No subscribers");
+      sharedSocket = null;
+    };
+  }, []);
+}

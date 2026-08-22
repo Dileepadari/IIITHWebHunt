@@ -12,6 +12,7 @@ import {
 import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { DEFAULT_WEBSITE_POINTS } from "./url";
 
 // Session storage table for Replit Auth
 export const sessions = pgTable(
@@ -45,35 +46,60 @@ export const teams = pgTable("teams", {
   name: varchar("name").notNull().unique(),
   captainId: varchar("captain_id").references(() => users.id),
   members: text("members").array().notNull(),
-  score: integer("score").default(0),
-  websitesConquered: integer("websites_conquered").default(0),
-  successfulAttempts: integer("successful_attempts").default(0),
-  totalAttempts: integer("total_attempts").default(0),
+  score: integer("score").default(0).notNull(),
+  websitesConquered: integer("websites_conquered").default(0).notNull(),
+  successfulAttempts: integer("successful_attempts").default(0).notNull(),
+  totalAttempts: integer("total_attempts").default(0).notNull(),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Websites table
-export const websites = pgTable("websites", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  url: varchar("url").notNull().unique(),
-  domain: varchar("domain").notNull(),
-  isConquered: boolean("is_conquered").default(false),
-  conqueredBy: varchar("conquered_by").references(() => teams.id),
-  conqueredAt: timestamp("conquered_at"),
-  points: integer("points").default(100),
-  createdAt: timestamp("created_at").defaultNow(),
-});
+// Websites table.
+// `normalizedUrl` is the only column ever used for matching a player's guess -
+// see shared/url.ts. `url` keeps the pretty form for display.
+export const websites = pgTable(
+  "websites",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    url: varchar("url").notNull(),
+    normalizedUrl: varchar("normalized_url").notNull().unique(),
+    domain: varchar("domain").notNull(),
+    isConquered: boolean("is_conquered").default(false).notNull(),
+    conqueredBy: varchar("conquered_by").references(() => teams.id),
+    conqueredAt: timestamp("conquered_at"),
+    points: integer("points").default(DEFAULT_WEBSITE_POINTS).notNull(),
+    // "admin" = seeded from the admin panel, "discovered" = a player guessed a
+    // live iiit.ac.in host we had never been told about, and we verified it.
+    source: varchar("source").notNull().default("admin"),
+    createdAt: timestamp("created_at").defaultNow(),
+  },
+  (table) => [
+    index("IDX_websites_normalized_url").on(table.normalizedUrl),
+    index("IDX_websites_domain").on(table.domain),
+  ],
+);
 
-// Conquest attempts table
-export const conquests = pgTable("conquests", {
-  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
-  teamId: varchar("team_id").references(() => teams.id).notNull(),
-  websiteId: varchar("website_id").references(() => websites.id),
-  url: varchar("url").notNull(),
-  isSuccessful: boolean("is_successful").notNull(),
-  points: integer("points").notNull(),
-  attemptedAt: timestamp("attempted_at").defaultNow(),
-});
+// Conquest attempts table.
+// `normalizedUrl` lets us answer "has this team already tried this?" without
+// re-parsing history, which is what keeps repeat submissions from being
+// penalised twice.
+export const conquests = pgTable(
+  "conquests",
+  {
+    id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+    teamId: varchar("team_id").references(() => teams.id).notNull(),
+    websiteId: varchar("website_id").references(() => websites.id),
+    url: varchar("url").notNull(),
+    normalizedUrl: varchar("normalized_url").notNull(),
+    isSuccessful: boolean("is_successful").notNull(),
+    points: integer("points").notNull(),
+    outcome: varchar("outcome").notNull().default("conquered"),
+    attemptedAt: timestamp("attempted_at").defaultNow(),
+  },
+  (table) => [
+    index("IDX_conquests_team_url").on(table.teamId, table.normalizedUrl),
+    index("IDX_conquests_attempted_at").on(table.attemptedAt),
+  ],
+);
 
 // Game sessions table
 export const gameSessions = pgTable("game_sessions", {
@@ -153,6 +179,9 @@ export const insertWebsiteSchema = createInsertSchema(websites).omit({
   isConquered: true,
   conqueredBy: true,
   conqueredAt: true,
+  // Derived on the server from `url`; never trusted from the request body.
+  normalizedUrl: true,
+  domain: true,
 });
 
 export const insertConquestSchema = createInsertSchema(conquests).omit({

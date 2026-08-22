@@ -1,24 +1,32 @@
-# Development Dockerfile with hot reload
-FROM node:20-alpine
+# Development image with hot reload.
+FROM node:22-alpine
 
 WORKDIR /app
 
-# Install dependencies
+# curl backs the healthcheck, netcat lets the entrypoint wait for Postgres.
+# Neither ships in the alpine base.
+RUN apk add --no-cache curl netcat-openbsd
+
 COPY package*.json ./
 RUN npm install
 
-# Copy source code
 COPY . .
 
-# Create logs directory
 RUN mkdir -p logs
 
-# Expose ports for both backend and frontend dev servers
-EXPOSE 5000 5173
+# Vite runs in middleware mode inside Express, so the app is served entirely from
+# one port. The old image also published 5173 for a standalone Vite server that
+# this project never starts.
+EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=3s --start-period=20s --retries=3 \
   CMD curl -f http://localhost:5000/api/health || exit 1
 
-# Start development server with hot reload
+# Shared with the production image: waits for the database and applies the schema
+# before starting. Without it a fresh dev database has no tables and every query
+# fails.
+COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+ENTRYPOINT ["docker-entrypoint.sh"]
+
 CMD ["npm", "run", "dev"]

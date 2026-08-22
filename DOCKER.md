@@ -52,8 +52,7 @@ This document provides comprehensive instructions for running the Website Hunt p
 ### Core Services
 
 - **app**: Website Hunt application (Node.js + Express + React)
-- **database**: PostgreSQL 16 database
-- **redis**: Redis cache for sessions
+- **database**: PostgreSQL 16 database (also stores sessions; there is no Redis)
 
 ### Optional Services
 
@@ -70,10 +69,6 @@ This document provides comprehensive instructions for running the Website Hunt p
 # Database
 DB_PASSWORD=secure_password_change_in_production
 DATABASE_URL=postgresql://websitehunt_user:password@database:5432/websitehunt
-
-# Redis
-REDIS_PASSWORD=redis_password_change_in_production
-REDIS_URL=redis://:password@redis:6379
 
 # Session
 SESSION_SECRET=change_this_in_production_please
@@ -161,7 +156,6 @@ docker-compose logs -f
 ```bash
 docker-compose logs -f app
 docker-compose logs -f database
-docker-compose logs -f redis
 ```
 
 ### Monitoring Setup
@@ -180,7 +174,6 @@ docker-compose logs -f redis
 The monitoring stack provides:
 - Application response times
 - Database connection pool metrics  
-- Redis cache hit rates
 - System resource usage
 - Custom game metrics (active players, conquests, etc.)
 
@@ -255,8 +248,6 @@ docker-compose ps
 # Database
 docker-compose exec database pg_isready -U websitehunt_user
 
-# Redis  
-docker-compose exec redis redis-cli ping
 
 # Application
 curl -f http://localhost:5000/api/health
@@ -270,7 +261,6 @@ The containers are configured with reasonable resource limits:
 
 - **app**: 2GB RAM, 2 CPU cores
 - **database**: 1GB RAM, 1 CPU core  
-- **redis**: 512MB RAM, 0.5 CPU core
 
 Adjust in `docker-compose.yml` based on your system:
 
@@ -291,7 +281,6 @@ services:
 
 Use named volumes for better performance:
 - `postgres_data`: Database storage
-- `redis_data`: Cache storage  
 - `nginx_logs`: Web server logs
 
 ## Maintenance

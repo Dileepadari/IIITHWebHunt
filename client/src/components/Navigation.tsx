@@ -3,6 +3,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Link, useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { User } from "@shared/schema";
+import logoMark from "@/assets/logo-mark.png";
 
 export default function Navigation() {
   const { user, isAuthenticated, isLoading, logoutMutation } = useAuth();
@@ -62,8 +63,8 @@ export default function Navigation() {
           <div className="flex justify-between items-center h-16">
             {/* Logo */}
             <Link to="/" className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-electric-blue to-neon-green rounded-lg flex items-center justify-center">
-                <i className="fas fa-search text-white text-lg"></i>
+              <div className="logo-badge w-10 h-10 rounded-lg flex items-center justify-center">
+                <img src={logoMark} alt="" className="logo-mono w-6 h-6" />
               </div>
               <div>
                 <h1 className="font-orbitron font-black text-xl text-white">WEBSITE HUNT</h1>
@@ -99,7 +100,7 @@ export default function Navigation() {
                       to="/admin"
                       className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-all ${
                         location === "/admin"
-                          ? "bg-neon-green bg-opacity-20 text-neon-green border border-neon-green border-opacity-30"
+                          ? "bg-neon-green/20 text-neon-green border border-neon-green/30"
                           : "text-gray-300 hover:text-neon-green hover:bg-gaming-gray"
                       }`}
                     >
@@ -140,7 +141,7 @@ export default function Navigation() {
                           {user.firstName} {user.lastName}
                         </span>
                         {user.isAdmin && (
-                          <span className="text-xs text-neon-green bg-neon-green bg-opacity-20 px-2 py-1 rounded-full border border-neon-green border-opacity-30">
+                          <span className="text-xs text-neon-green bg-neon-green/20 px-2 py-1 rounded-full border border-neon-green/30">
                             <i className="fas fa-crown mr-1"></i>Admin
                           </span>
                         )}

@@ -1,39 +1,45 @@
+# Prometheus configuration for the optional monitoring profile
+# (docker compose --profile with-monitoring up).
+#
+# Only jobs whose targets actually expose Prometheus metrics are enabled. The
+# previous version scraped app:5000/metrics, database:5432, redis:6379 and
+# nginx:80 - none of which speak the Prometheus exposition format, so every
+# target sat permanently DOWN and Grafana had nothing to draw. Enabling a job
+# below means also adding the exporter it names to docker-compose.yml.
+
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
-rule_files:
-  # - "first_rules.yml"
-  # - "second_rules.yml"
+rule_files: []
 
 scrape_configs:
-  # Website Hunt Application
-  - job_name: 'websitehunt-app'
+  # Prometheus scraping itself. This is the only target that works out of the
+  # box, and it is what tells you the monitoring stack is alive at all.
+  - job_name: 'prometheus'
     static_configs:
-      - targets: ['app:5000']
-    metrics_path: '/metrics'
-    scrape_interval: 30s
+      - targets: ['localhost:9090']
 
-  # PostgreSQL Database
-  - job_name: 'postgres'
-    static_configs:
-      - targets: ['database:5432']
-    scrape_interval: 30s
+  # The application does not expose /metrics. To enable this, instrument the
+  # server (for example with prom-client) and serve it from an endpoint.
+  # - job_name: 'websitehunt-app'
+  #   static_configs:
+  #     - targets: ['app:5000']
+  #   metrics_path: '/metrics'
 
-  # Redis Cache
-  - job_name: 'redis'
-    static_configs:
-      - targets: ['redis:6379']
-    scrape_interval: 30s
+  # Postgres speaks its own wire protocol, not Prometheus. Needs
+  # prometheuscommunity/postgres-exporter as a sidecar on port 9187.
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
 
-  # Nginx Proxy
-  - job_name: 'nginx'
-    static_configs:
-      - targets: ['nginx:80']
-    scrape_interval: 30s
+  # nginx needs nginx/nginx-prometheus-exporter (port 9113) plus a stub_status
+  # endpoint in the nginx config.
+  # - job_name: 'nginx'
+  #   static_configs:
+  #     - targets: ['nginx-exporter:9113']
 
-  # Node Exporter (if added)
-  - job_name: 'node-exporter'
-    static_configs:
-      - targets: ['node-exporter:9100']
-    scrape_interval: 30s
+  # Host metrics need prom/node-exporter (port 9100) added to compose.
+  # - job_name: 'node-exporter'
+  #   static_configs:
+  #     - targets: ['node-exporter:9100']

@@ -9,14 +9,17 @@ import { storage } from "./storage";
 import { User } from "@shared/schema";
 import connectPg from "connect-pg-simple";
 import { pool } from "./db";
+import { isUniqueViolation } from "./dbErrors";
 
 declare global {
   namespace Express {
-    interface User extends Omit<User, 'id'> {
-      id: string;
-    }
+    // Aliasing through a distinct name avoids the interface extending itself,
+    // which is what made the old declaration a circular-reference error.
+    interface User extends AppUser {}
   }
 }
+
+type AppUser = User;
 
 const scryptAsync = promisify(scrypt);
 
@@ -28,9 +31,32 @@ async function hashPassword(password: string) {
 
 async function comparePasswords(supplied: string, stored: string) {
   const [hashed, salt] = stored.split(".");
+  if (!hashed || !salt) return false;
+
   const hashedBuf = Buffer.from(hashed, "hex");
   const suppliedBuf = (await scryptAsync(supplied, salt, 64)) as Buffer;
+  // timingSafeEqual throws when the buffers differ in length, so a truncated or
+  // legacy hash would otherwise crash the login route instead of rejecting it.
+  if (hashedBuf.length !== suppliedBuf.length) return false;
   return timingSafeEqual(hashedBuf, suppliedBuf);
+}
+
+/**
+ * Finds a free username near the requested one.
+ *
+ * Google sign-in derives a username from the email prefix, and two people at
+ * different domains routinely share one ("rahul@iiit.ac.in", "rahul@gmail.com").
+ * Without this, the second of them hit a unique-constraint 500 at login.
+ */
+async function uniqueUsername(base: string): Promise<string> {
+  const root = base.replace(/[^a-z0-9._-]/gi, "").toLowerCase() || "player";
+
+  if (!(await storage.getUserByUsername(root))) return root;
+  for (let suffix = 2; suffix < 100; suffix++) {
+    const candidate = `${root}${suffix}`;
+    if (!(await storage.getUserByUsername(candidate))) return candidate;
+  }
+  return `${root}-${randomBytes(4).toString("hex")}`;
 }
 
 export function setupAuth(app: Express) {
@@ -42,14 +68,38 @@ export function setupAuth(app: Express) {
     tableName: "sessions"
   });
 
+  // A predictable session secret lets anyone forge a session cookie, so in
+  // production it must be supplied rather than silently defaulted.
+  if (process.env.NODE_ENV === "production" && !process.env.SESSION_SECRET) {
+    throw new Error("SESSION_SECRET must be set in production");
+  }
+
+  // Secure cookies are the right default in production, but they are only sent
+  // over HTTPS - so a production deployment served over plain HTTP (a LAN event
+  // with no TLS, for instance) would hand out a cookie the browser then refuses
+  // to return, and every login would appear to succeed and immediately fail.
+  // COOKIE_SECURE makes that an explicit, documented choice instead of a mystery.
+  const secureCookies =
+    process.env.COOKIE_SECURE !== undefined
+      ? process.env.COOKIE_SECURE === "true"
+      : process.env.NODE_ENV === "production";
+
+  if (process.env.NODE_ENV === "production" && !secureCookies) {
+    console.warn(
+      "[auth] COOKIE_SECURE=false: session cookies will be sent over plain HTTP. " +
+        "Only do this on a trusted network without TLS.",
+    );
+  }
+
   const sessionSettings: session.SessionOptions = {
     secret: process.env.SESSION_SECRET || "dev-secret-change-in-production",
     resave: false,
     saveUninitialized: false,
     store: sessionStore,
     cookie: {
-      secure: process.env.NODE_ENV === "production",
+      secure: secureCookies,
       httpOnly: true,
+      sameSite: "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   };
@@ -98,9 +148,8 @@ export function setupAuth(app: Express) {
 
             let user = await storage.getUserByEmail(email);
             if (!user) {
-              // Create new user from Google profile
               user = await storage.createUser({
-                username: email.split("@")[0], // Use email prefix as username
+                username: await uniqueUsername(email.split("@")[0]),
                 email,
                 firstName: profile.name?.givenName || "",
                 lastName: profile.name?.familyName || "",
@@ -121,7 +170,10 @@ export function setupAuth(app: Express) {
   passport.deserializeUser(async (id: string, done) => {
     try {
       const user = await storage.getUser(id);
-      done(null, user);
+      // A session whose user has been deleted must fail closed; passing
+      // undefined here left req.user unset while req.isAuthenticated() still
+      // reported true, and every route then read `.id` off undefined.
+      done(null, user ?? false);
     } catch (error) {
       done(error);
     }
@@ -130,10 +182,20 @@ export function setupAuth(app: Express) {
   // Auth routes
   app.post("/api/register", async (req, res, next) => {
     try {
-      const { username, email, password, firstName, lastName } = req.body;
+      const username = String(req.body?.username ?? "").trim();
+      const email = String(req.body?.email ?? "").trim().toLowerCase();
+      const password = String(req.body?.password ?? "");
+      const firstName = String(req.body?.firstName ?? "").trim();
+      const lastName = String(req.body?.lastName ?? "").trim();
 
       if (!username || !email || !password) {
         return res.status(400).json({ message: "Username, email, and password are required" });
+      }
+      if (password.length < 8) {
+        return res.status(400).json({ message: "Password must be at least 8 characters" });
+      }
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+        return res.status(400).json({ message: "Please enter a valid email address" });
       }
 
       // Check if user already exists
@@ -148,14 +210,24 @@ export function setupAuth(app: Express) {
       }
 
       // Create user
-      const user = await storage.createUser({
-        username,
-        email,
-        password: await hashPassword(password),
-        firstName: firstName || "",
-        lastName: lastName || "",
-        isGoogleAuth: false,
-      });
+      let user;
+      try {
+        user = await storage.createUser({
+          username,
+          email,
+          password: await hashPassword(password),
+          firstName,
+          lastName,
+          isGoogleAuth: false,
+        });
+      } catch (error) {
+        // Two simultaneous signups can both pass the checks above; the unique
+        // index is the real arbiter, so translate its error rather than 500.
+        if (isUniqueViolation(error)) {
+          return res.status(409).json({ message: "That username or email is already registered" });
+        }
+        throw error;
+      }
 
       // Log in the user
       req.login(user, (err) => {
@@ -198,7 +270,12 @@ export function setupAuth(app: Express) {
   app.post("/api/logout", (req, res, next) => {
     req.logout((err) => {
       if (err) return next(err);
-      res.json({ message: "Logged out successfully" });
+      // Destroy the stored session too, so the row cannot be replayed with a
+      // stolen cookie after the user has explicitly signed out.
+      req.session.destroy(() => {
+        res.clearCookie("connect.sid");
+        res.json({ message: "Logged out successfully" });
+      });
     });
   });
 

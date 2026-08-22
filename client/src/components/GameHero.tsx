@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/useWebSocket";
 import { GameSession } from "@shared/schema";
@@ -5,39 +6,65 @@ import { GameSession } from "@shared/schema";
 interface GameStats {
   totalWebsites: number;
   conquered: number;
+  discovered: number;
   activeTeams: number;
+  totalAttempts: number;
+}
+
+/** The session as the API returns it: with an absolute deadline attached. */
+type CurrentGame = GameSession & { endsAt: string | null; serverTime: string };
+
+function formatDuration(ms: number): string {
+  const total = Math.max(0, Math.floor(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = total % 60;
+  return [hours, minutes, seconds].map((n) => String(n).padStart(2, "0")).join(":");
 }
 
 export default function GameHero() {
   const { data: stats } = useQuery<GameStats>({
     queryKey: ["/api/admin/stats"],
-    refetchInterval: 30000, // Refresh every 30 seconds
+    // Backstop only: the websocket pushes these updates as they happen.
+    // Polling exists to recover from a missed event, not to drive the UI.
+    refetchInterval: 60000,
   });
 
-  const { data: gameSession } = useQuery<GameSession>({
+  const { data: gameSession } = useQuery<CurrentGame | null>({
     queryKey: ["/api/game/current"],
-    refetchInterval: 10000, // Refresh every 10 seconds
+    // Polled faster than the rest: this carries the clock and the pause
+    // state, and a stale copy changes whether submissions are accepted.
+    refetchInterval: 15000,
   });
 
   // Use WebSocket for real-time updates
   useWebSocket();
 
+  // The clock has to tick on its own. Previously the countdown only recomputed
+  // when the query refetched, so it visibly jumped in 10-second steps.
+  const [now, setNow] = useState(() => Date.now());
+  const isRunning = gameSession?.status === "active";
+
+  useEffect(() => {
+    if (!isRunning) return;
+    const id = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(id);
+  }, [isRunning]);
+
+  /**
+   * Offset between this browser's clock and the server's, sampled whenever the
+   * session is refetched. Without it, a device with a badly set clock shows a
+   * countdown that disagrees with everyone else's.
+   */
+  const skewRef = useRef(0);
+  const serverTime = gameSession?.serverTime;
+  useEffect(() => {
+    if (serverTime) skewRef.current = Date.parse(serverTime) - Date.now();
+  }, [serverTime]);
+
   const getTimeRemaining = () => {
-    if (!gameSession?.startTime || !gameSession?.duration) {
-      return "00:00:00";
-    }
-    
-    const startTime = new Date(gameSession.startTime).getTime();
-    const duration = gameSession.duration * 60 * 1000; // Convert minutes to milliseconds
-    const endTime = startTime + duration;
-    const now = Date.now();
-    const remaining = Math.max(0, endTime - now);
-    
-    const hours = Math.floor(remaining / (1000 * 60 * 60));
-    const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
-    const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
-    
-    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+    if (!gameSession?.endsAt || gameSession.status === "ended") return "00:00:00";
+    return formatDuration(new Date(gameSession.endsAt).getTime() - (now + skewRef.current));
   };
 
   return (
