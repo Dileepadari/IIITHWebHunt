@@ -52,3 +52,37 @@ The four remaining dev-only advisories are `esbuild` via `drizzle-kit`. drizzle-
 - **No tests at all.** `scripts/smoke-test.sh` exists and is a shell script hitting endpoints, not a suite. CI now proves the app typechecks, builds, migrates, seeds, reseeds and serves, which is a floor. `shared/url.ts` is the piece that most deserves unit tests: it decides whether two strings are the same website, and getting that wrong means teams are wrongly charged for duplicates.
 - The shell scripts under `scripts/` are full of emoji (✅ ❌ 🚀 and so on). Left alone deliberately: they are operator-facing console output where the emoji carry status at a glance, not product copy or documentation.
 - `Continue with Google` is wired to OAuth that needs credentials nobody has set. It renders as a live button that fails if pressed.
+
+## Screenshots, second pass
+
+The first pass produced four images and stopped there because the browser
+extension dropped mid-capture. Redone properly against a fully seeded instance:
+**ten desktop screens and four responsive ones**, all real viewport renders.
+
+Setting the instance up meant playing the game rather than writing rows: a demo
+team registered through the app's own form, four more accounts through the same
+`/api/register` the form posts to, five teams created from the admin panel, a
+90-minute session started, and ten sites conquered in varied URL shapes -
+`cvit.iiit.ac.in`, `HTTPS://Library.IIIT.ac.in/`, `www.ltrc.iiit.ac.in/#about`,
+`students.iiit.ac.in/index.html`, `  WWW.IIIT.ac.in/  `. Every one of those was
+accepted against the canonical form, which is the app's whole thesis demonstrated
+rather than asserted. The deep link `admissions.iiit.ac.in/apply` scored against
+the listed root, as designed.
+
+That leaves the leaderboard, the activity feed and the admin panels showing real
+standings instead of zeroes, which is the entire reason for doing it this way.
+
+## Two responsive bugs the phone shots exposed
+
+- **The nav bar switched to the desktop layout at 768px**, where it does not fit:
+  the links, the user block and the admin badge crowded into each other on a
+  tablet. Moved the whole switch to `lg`, so the drawer stays in charge up to
+  1024px.
+- **"Team Management" and its "Add Team" button overlapped on a phone.** The
+  `CardHeader` was `flex flex-row items-center justify-between` with no wrap, so
+  at 390px the button sat on top of the title. `flex-wrap` plus a gap; the button
+  now drops below the heading.
+
+Neither would have been found without rendering at those exact sizes. The tab
+strip inside the admin panel looks clipped in the phone screenshot: it is not, it
+is `overflow-x-auto` and scrolls - the capture harness hides scrollbars.

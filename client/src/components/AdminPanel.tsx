@@ -452,7 +452,9 @@ export default function AdminPanel() {
       {activeTab === "teams" && (
         <div className="space-y-6">
           <Card className="conquest-card border-none">
-            <CardHeader className="flex flex-row items-center justify-between">
+            {/* Wraps: on a phone the title and the button are wider than the card
+                together, and without this they overlap. */}
+            <CardHeader className="flex flex-row flex-wrap items-center justify-between gap-3">
               <CardTitle className="text-electric-blue flex items-center">
                 <i className="fas fa-users mr-3"></i>
                 Team Management

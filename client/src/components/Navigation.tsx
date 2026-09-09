@@ -75,13 +75,16 @@ export default function Navigation() {
             {/* Hamburger Menu */}
             <button
               onClick={() => setMenuOpen(!menuOpen)}
-              className="md:hidden text-gray-400 hover:text-white focus:outline-none"
+              className="lg:hidden text-gray-400 hover:text-white focus:outline-none"
             >
               <i className={`fas ${menuOpen ? "fa-times" : "fa-bars"} text-xl`}></i>
             </button>
 
             {/* Desktop Menu */}
-            <div className="hidden md:flex items-center space-x-8">
+            {/* The desktop bar only fits from 1024px: at tablet widths the links,
+                the user block and the admin badge crowd into each other, so the
+                drawer stays in charge up to lg. */}
+            <div className="hidden lg:flex items-center space-x-8">
               {user && (
                 <>
                   <Link
@@ -118,7 +121,7 @@ export default function Navigation() {
             </div>
 
             {/* User Info */}
-            <div className="hidden md:flex items-center space-x-4">
+            <div className="hidden lg:flex items-center space-x-4">
               {isLoading ? (
                 <div className="flex items-center space-x-3">
                   <div className="w-8 h-8 bg-gaming-gray rounded-full animate-pulse"></div>
@@ -177,7 +180,7 @@ export default function Navigation() {
 
         {/* Mobile Menu */}
         {menuOpen && user && (
-          <div className="md:hidden px-4 pb-4 bg-gaming-dark space-y-2">
+          <div className="lg:hidden px-4 pb-4 bg-gaming-dark space-y-2">
             <div className="flex items-center text-sm text-gray-400">
               <i className="fas fa-globe mr-2"></i>Live Game
               <div className="w-2 h-2 bg-neon-green rounded-full ml-2 animate-pulse"></div>

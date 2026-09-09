@@ -34,6 +34,7 @@ submission for a site that is not on the list is checked live, and counts if it 
 
 - [Why this project matters](#why-this-project-matters)
 - [Screenshots](#screenshots)
+- [Responsive layout](#responsive-layout)
 - [Features](#features)
 - [Roles](#roles)
 - [The game lifecycle](#the-game-lifecycle)
@@ -65,29 +66,86 @@ than pulled from a CDN.
 
 ## Screenshots
 
-Real 1440x900 viewport renders against a seeded instance. **The app ships a single dark
-theme**, so unlike the other projects in this account there is no light gallery and no
-`README-light.md` to toggle to.
+Real viewport renders against a seeded instance with five registered teams and a
+live game running. **The app ships a single dark theme**, so unlike the other
+projects in this account there is no light gallery and no `README-light.md` to
+toggle to.
 
 <table>
   <tr>
-    <td width="50%" valign="top">
-      <img src="./docs/screenshots/01-landing.png" alt="The landing page with the Website Hunt title and game features" loading="lazy">
+    <td width="33%" valign="top">
+      <img src="./docs/screenshots/01-landing.png" alt="Landing page with the Website Hunt title, Start Hunting and Admin Portal buttons, and the game feature cards" loading="lazy">
       <p align="center"><b>Landing</b><br><sub>Where a team starts, before anyone has an account.</sub></p>
     </td>
-    <td width="50%" valign="top">
-      <img src="./docs/screenshots/02-auth.png" alt="The login and register panel beside a summary of the rules" loading="lazy">
-      <p align="center"><b>Sign in</b><br><sub>Register or log in, with the scoring rules alongside.</sub></p>
+    <td width="33%" valign="top">
+      <img src="./docs/screenshots/02-auth.png" alt="Login panel beside a summary of the scoring rules" loading="lazy">
+      <p align="center"><b>Sign in</b><br><sub>Log in, with the scoring rules alongside.</sub></p>
+    </td>
+    <td width="33%" valign="top">
+      <img src="./docs/screenshots/06-register.png" alt="Registration form asking for name, username, email and password" loading="lazy">
+      <p align="center"><b>Register</b><br><sub>Anyone can sign up; an admin puts them on a team.</sub></p>
     </td>
   </tr>
   <tr>
-    <td width="50%" valign="top">
-      <img src="./docs/screenshots/03-dashboard.png" alt="Participant dashboard with total websites, conquered count and a countdown" loading="lazy">
+    <td width="33%" valign="top">
+      <img src="./docs/screenshots/03-dashboard.png" alt="Participant dashboard with total websites, conquered count, active teams and a countdown" loading="lazy">
       <p align="center"><b>Participant</b><br><sub>Live counts, the clock, and your team's standing.</sub></p>
     </td>
-    <td width="50%" valign="top">
-      <img src="./docs/screenshots/04-admin.png" alt="Admin control centre with overview, game control, teams and websites tabs" loading="lazy">
-      <p align="center"><b>Admin</b><br><sub>Run the clock, manage teams, and see discovered sites.</sub></p>
+    <td width="33%" valign="top">
+      <img src="./docs/screenshots/04-conquest.png" alt="A successful conquest showing the points earned and the team's updated score" loading="lazy">
+      <p align="center"><b>A conquest</b><br><sub>The URL is canonicalised before it is sent, then scored.</sub></p>
+    </td>
+    <td width="33%" valign="top">
+      <img src="./docs/screenshots/05-leaderboard.png" alt="Live leaderboard ranking five teams by points, with a global activity feed underneath" loading="lazy">
+      <p align="center"><b>Leaderboard</b><br><sub>Ranked live, with every team's conquests as they land.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="./docs/screenshots/07-admin-overview.png" alt="Admin overview with total websites, conquered, active teams, player-discovered count and game status" loading="lazy">
+      <p align="center"><b>Admin overview</b><br><sub>Including how many sites the players found themselves.</sub></p>
+    </td>
+    <td width="33%" valign="top">
+      <img src="./docs/screenshots/08-admin-teams.png" alt="Team management listing five teams with their points, members and conquest counts" loading="lazy">
+      <p align="center"><b>Teams</b><br><sub>Create a team and put registered users on it.</sub></p>
+    </td>
+    <td width="33%" valign="top">
+      <img src="./docs/screenshots/10-admin-websites.png" alt="Website management with a bulk add box and the ten current target sites" loading="lazy">
+      <p align="center"><b>Websites</b><br><sub>Paste the target list in bulk; conquered sites are marked.</sub></p>
+    </td>
+  </tr>
+  <tr>
+    <td width="33%" valign="top">
+      <img src="./docs/screenshots/09-admin-game-control.png" alt="Game session control with pause and end buttons while a game is running" loading="lazy">
+      <p align="center"><b>Game control</b><br><sub>Start the clock, pause it, end the round.</sub></p>
+    </td>
+    <td width="33%" valign="top"></td>
+    <td width="33%" valign="top"></td>
+  </tr>
+</table>
+
+## Responsive layout
+
+The event is run from phones as often as laptops. Each of these is a single render
+at that exact viewport, not a scaled-down desktop shot.
+
+<table>
+  <tr>
+    <td width="26%" valign="top">
+      <img src="./docs/screenshots/responsive/phone-landing.png" alt="Landing page on a 390x844 phone viewport" loading="lazy">
+      <p align="center"><b>Phone, 390x844</b><br><sub>The landing page, with both ways in above the fold.</sub></p>
+    </td>
+    <td width="26%" valign="top">
+      <img src="./docs/screenshots/responsive/phone-dashboard.png" alt="Team dashboard and submission form on a 390x844 phone viewport" loading="lazy">
+      <p align="center"><b>Phone, playing</b><br><sub>Score, submission box and leaderboard stack in one column.</sub></p>
+    </td>
+    <td width="26%" valign="top">
+      <img src="./docs/screenshots/responsive/phone-admin.png" alt="Admin team management on a 390x844 phone viewport" loading="lazy">
+      <p align="center"><b>Phone, admin</b><br><sub>The tab strip scrolls; the panel is usable one-handed.</sub></p>
+    </td>
+    <td width="22%" valign="top">
+      <img src="./docs/screenshots/responsive/tablet-admin.png" alt="Admin overview on an 820x1180 tablet viewport" loading="lazy">
+      <p align="center"><b>Tablet, 820x1180</b><br><sub>Stat cards go two-up; the nav stays in the drawer.</sub></p>
     </td>
   </tr>
 </table>
