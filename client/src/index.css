@@ -1,5 +1,23 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Orbitron:wght@400;700;900&display=swap');
-@import url('https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css');
+/* Fonts and icons are bundled, not fetched from a CDN at runtime.
+ *
+ * These were @import url(https://fonts.googleapis.com/...) and
+ * @import url(https://cdnjs.cloudflare.com/...). That works on a laptop with
+ * internet and fails completely on the deployment this app is actually built
+ * for: a campus LAN event, self-hosted over plain HTTP, with no route out. All
+ * 37 fa- icons vanished and the Orbitron display face fell back to a system
+ * font, which is most of the visual identity.
+ *
+ * Vite fingerprints and emits the webfonts into dist/, so the container serves
+ * them itself. */
+@import "@fontsource/inter/300.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/orbitron/400.css";
+@import "@fontsource/orbitron/700.css";
+@import "@fontsource/orbitron/900.css";
+@import "@fortawesome/fontawesome-free/css/all.min.css";
 
 @tailwind base;
 @tailwind components;

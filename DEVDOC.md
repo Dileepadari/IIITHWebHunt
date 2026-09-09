@@ -287,9 +287,10 @@ npm install
 docker run -d --name hunt-pg -e POSTGRES_PASSWORD=hunt -e POSTGRES_USER=hunt \
   -e POSTGRES_DB=websitehunt -p 5432:5432 postgres:16-alpine
 
-export DATABASE_URL="postgresql://hunt:hunt@localhost:5432/websitehunt"
-export SESSION_SECRET=dev-secret
-export ADMIN_PASSWORD=adminpass123
+# .env is read directly by `npm run dev` and `npm run db:seed`, so this is the
+# same file the Docker path uses. Exporting the variables still works if you
+# prefer.
+cp .env.example .env      # then set DATABASE_URL and SESSION_SECRET
 
 npm run db:push     # apply the schema
 npm run db:seed     # create the admin and starter sites
@@ -352,3 +353,73 @@ See [DEPLOYMENT.md](./DEPLOYMENT.md) and [DOCKER.md](./DOCKER.md) for the longer
   default, so over plain HTTP the browser accepts it and never sends it back: every
   request then looks unauthenticated with no error explaining why. Put the app behind
   TLS, or set `COOKIE_SECURE=false` deliberately.
+
+## Assets are bundled, never fetched
+
+Fonts (Inter, Orbitron) and Font Awesome are npm dependencies imported from
+`client/src/index.css`. Vite fingerprints the webfonts into `dist/`, so the
+container serves them itself.
+
+**Do not replace these with a CDN `@import`.** They were exactly that, and it
+fails on the deployment this app is built for: a campus LAN with no route out,
+where all 37 `fa-` icons vanish and Orbitron, which is most of the visual
+identity, falls back to a system sans. It works fine on a laptop with internet,
+which is why it went unnoticed.
+
+CI fails the build if `dist/` references `cdnjs.cloudflare.com` or
+`fonts.googleapis.com`, or if no `.woff2` is emitted.
+
+## Configuration
+
+`.env` is read by three things now, and they are not the same mechanism:
+
+| Consumer | How |
+|---|---|
+| `docker compose` | Reads `.env` and passes the values into the container |
+| `drizzle-kit` (`db:push`) | Loads `.env` itself |
+| `npm run dev`, `npm run db:seed` | Node's `--env-file-if-exists=.env` |
+
+The last row is why `engines` pins **node >= 22.9**: that is where
+`--env-file-if-exists` landed. The tolerant flag matters, because there is no
+`.env` inside the image and the strict `--env-file` would make the container
+refuse to start.
+
+`npm start` deliberately does **not** read `.env`: production takes its
+configuration from the real environment.
+
+## Continuous integration
+
+`.github/workflows/ci.yml` runs on every push to `master` and every pull request.
+
+| Job | What it runs |
+|---|---|
+| `check` | `npm run check`, `npm run build`, and the no-CDN assertion, on Node **22** and **24** |
+| `smoke` | Against a real Postgres: `db:push`, `db:seed`, seed **again** to prove idempotency, build, serve, and assert `/api/user` is 401 unauthenticated |
+| `audit` | `npm audit` for information, then `--omit=dev --audit-level=high` as a gate |
+
+There is no test suite, so the smoke job is what stands in for one. Seeding
+twice is checked explicitly because the seed is the only way an admin account
+can exist: a seed that fails on a second run means a redeploy locks you out of
+the admin panel.
+
+## Documentation
+
+| File | For |
+|---|---|
+| `README.md` | Users |
+| `DEVDOC.md` | This file. Contributors |
+| `DOCKER.md`, `DEPLOYMENT.md` | Running it in anger |
+| `not_for_you.md` | The author's working log. Not documentation |
+
+There is **no `README-light.md`**. The app ships a single dark theme: `:root` is
+dark, `.dark` is never applied, and there is no toggle. A light page would be a
+duplicate of the dark one.
+
+Screenshots live in `docs/screenshots/` at 1440x900, captured against a seeded
+instance with an account registered through the app's own form.
+
+## Licensing
+
+MIT, see `LICENSE`. Runtime dependencies are permissive (MIT/ISC/Apache-2.0);
+Font Awesome Free is CC BY 4.0 for the icons and MIT for the code, and
+`@fontsource/*` ships the fonts under the SIL Open Font License.
