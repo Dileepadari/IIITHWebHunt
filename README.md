@@ -114,14 +114,6 @@ toggle to.
       <p align="center"><b>Websites</b><br><sub>Paste the target list in bulk; conquered sites are marked.</sub></p>
     </td>
   </tr>
-  <tr>
-    <td width="33%" valign="top">
-      <img src="./docs/screenshots/09-admin-game-control.png" alt="Game session control with pause and end buttons while a game is running" loading="lazy">
-      <p align="center"><b>Game control</b><br><sub>Start the clock, pause it, end the round.</sub></p>
-    </td>
-    <td width="33%" valign="top"></td>
-    <td width="33%" valign="top"></td>
-  </tr>
 </table>
 
 ## Responsive layout
@@ -139,11 +131,7 @@ at that exact viewport, not a scaled-down desktop shot.
       <img src="./docs/screenshots/responsive/phone-dashboard.png" alt="Team dashboard and submission form on a 390x844 phone viewport" loading="lazy">
       <p align="center"><b>Phone, playing</b><br><sub>Score, submission box and leaderboard stack in one column.</sub></p>
     </td>
-    <td width="26%" valign="top">
-      <img src="./docs/screenshots/responsive/phone-admin.png" alt="Admin team management on a 390x844 phone viewport" loading="lazy">
-      <p align="center"><b>Phone, admin</b><br><sub>The tab strip scrolls; the panel is usable one-handed.</sub></p>
-    </td>
-    <td width="22%" valign="top">
+    <td width="48%" valign="top">
       <img src="./docs/screenshots/responsive/tablet-admin.png" alt="Admin overview on an 820x1180 tablet viewport" loading="lazy">
       <p align="center"><b>Tablet, 820x1180</b><br><sub>Stat cards go two-up; the nav stays in the drawer.</sub></p>
     </td>
